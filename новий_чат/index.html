@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Мой локальный чат — база ответов</title>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;max-width:1100px;margin:18px auto;padding:12px;color:#222}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}.wrap{display:flex;gap:18px;flex-wrap:wrap}.left{flex:1;min-width:280px}.right{width:360px;max-width:100%}
+.card{border:1px solid #ddd;border-radius:10px;padding:14px;margin-top:12px;background:#fafafa}
+label{display:block;margin-top:9px;font-weight:600}
+input[type=text],textarea,select{box-sizing:border-box;width:100%;padding:10px;border:1px solid #ccc;border-radius:7px;margin-top:5px;font-size:15px}
+button{padding:9px 12px;margin:5px 5px 0 0;border:1px solid #bbb;border-radius:7px;background:#fff;cursor:pointer}
+button:hover{background:#eef6ff}#chat{height:420px;overflow:auto;padding:12px;background:white;border:1px solid #eee;border-radius:7px}
+.msg{margin:10px 0;padding:10px;border-radius:8px;max-width:88%;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.user{background:#e6f7ff;text-align:right;margin-left:auto}.msg.bot{background:#f0f0f0;text-align:left;margin-right:auto}
+.small,.note{font-size:13px;color:#666}.note{margin-top:8px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.row input{flex:1;min-width:120px}
+.item{padding:8px;border-bottom:1px solid #e4e4e4;overflow-wrap:anywhere}.item button{float:right;margin-top:0}.status{padding:8px;border-radius:7px;background:#e6ffef;border:1px solid #bdeac8}
+@media(max-width:700px){.right{width:100%}#chat{height:360px}}
+</style>
+</head>
+<body>
+<header><h1>Мой локальный чат</h1><div class="small">Работает без OpenAI и без API-ключа</div></header>
+<div class="wrap">
+ <main class="left">
+  <section class="card">
+   <div id="chat" aria-live="polite"></div>
+   <div class="row"><input id="userInput" type="text" placeholder="Напиши вопрос..." autocomplete="off"><button id="sendBtn">Ответить</button></div>
+   <div class="note">Ответы ищутся в локальной базе и твоём словаре. Интернет и API-ключ не нужны.</div>
+  </section>
+  <section class="card">
+   <h3>База вопросов и ответов</h3>
+   <div class="small">Добавляй свои вопросы и ответы. Сохраняются на этом устройстве.</div>
+   <label>Вопрос или ключевые слова</label><input id="question" type="text" placeholder="например: привет, здравствуй">
+   <label>Ответ</label><textarea id="answer" rows="3" placeholder="Напиши ответ базы"></textarea>
+   <button id="addAnswer">Добавить / сохранить ответ</button>
+   <button id="exportDb">Экспорт базы JSON</button>
+   <button id="importDb">Импорт базы JSON</button><input id="importFile" type="file" accept=".json,application/json" hidden>
+   <div id="dbList"></div>
+  </section>
+ </main>
+ <aside class="right">
+  <section class="card">
+   <h3>Словарь моего мозга</h3>
+   <label>Слово</label><input id="wordKey" type="text" placeholder="например: флумарик">
+   <label>Значение</label><input id="wordValue" type="text" placeholder="что это означает">
+   <button id="addWord">Добавить / сохранить слово</button><button id="clearWords">Очистить словарь</button>
+   <div id="wordsList"></div>
+  </section>
+  <section class="card">
+   <h3>Настройки</h3>
+   <label>Стиль ответа</label><select id="style"><option value="friendly">Дружелюбный</option><option value="playful">Игривый</option><option value="serious">Серьёзный</option></select>
+   <button id="clearChat">Очистить историю чата</button>
+   <div class="status" style="margin-top:10px">Режим: полностью локальный</div>
+  </section>
+ </aside>
+</div>
+<script>
+'use strict';
+const DB_KEY='offline_answer_database_v1', WORD_KEY='offline_dictionary_v1', HISTORY_KEY='offline_chat_history_v1', STYLE_KEY='offline_chat_style_v1';
+const starterDb=[
+ {q:'привет;здравствуй;здравствуйте;хай;добрый день;доброе утро;добрый вечер',a:'Привет! Рад тебя видеть. Чем могу помочь?'},
+ {q:'как дела;как ты;как поживаешь',a:'Спасибо, всё хорошо! Я работаю локально и готов помочь.'},
+ {q:'кто ты;что ты такое;как тебя зовут',a:'Я локальный чат-помощник. Мои ответы берутся из базы вопросов и твоего словаря, без OpenAI.'},
+ {q:'что ты умеешь;твои возможности;что умеешь',a:'Я могу отвечать по локальной базе, использовать твой словарь, запоминать добавленные вопросы и ответы на этом устройстве, а также импортировать и экспортировать базу JSON.'},
+ {q:'пока;до свидания;увидимся',a:'До встречи! Возвращайся, когда понадобится помощь.'},
+ {q:'спасибо;благодарю',a:'Пожалуйста! Рад помочь.'},
+ {q:'помощь;как пользоваться;инструкция',a:'Напиши вопрос в чате. Я найду совпадение в базе. Чтобы добавить новый ответ, заполни раздел «База вопросов и ответов». Слова и их значения добавляй в «Словарь моего мозга».'},
+ {q:'что такое база данных;база данных',a:'База данных — это организованное хранилище информации. Здесь вопросы и ответы хранятся локально в браузере.'},
+ {q:'что такое словарь;мой словарь',a:'Словарь хранит придуманные тобой слова и их значения. Если сообщение содержит слово из словаря, я могу объяснить его.'},
+ {q:'ты работаешь без интернета;без интернета;офлайн',a:'Да. Эта версия отвечает по встроенной и твоей локальной базе. Интернет и API-ключ не требуются.'},
+ {q:'как сохранить;сохранение;где хранятся данные',a:'Данные автоматически сохраняются в хранилище браузера на этом устройстве. Для резервной копии используй «Экспорт базы JSON».'},
+ {q:'какая погода;погода',a:'Я работаю офлайн и не получаю текущую погоду. Добавь нужный ответ в локальную базу, если хочешь использовать его без интернета.'},
+ {q:'расскажи шутку;шутка;пошути',a:'Почему компьютер не спорит? Потому что у него всегда есть аргументы в файлах!'}
+];
+function readJson(key,fallback){try{const x=JSON.parse(localStorage.getItem(key));return x??fallback}catch(e){return fallback}}
+function writeJson(key,value){localStorage.setItem(key,JSON.stringify(value))}
+function normalize(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^\p{L}\p{N}\s-]/gu,' ').replace(/\s+/g,' ').trim()}
+function getDb(){const x=readJson(DB_KEY,null);return Array.isArray(x)?x:starterDb.slice()}
+function setDb(x){writeJson(DB_KEY,x)}
+function getWords(){return readJson(WORD_KEY,{})}
+function setWords(x){writeJson(WORD_KEY,x)}
+const chat=document.getElementById('chat'), input=document.getElementById('userInput');
+function addMessage(text,who='bot',save=true){const el=document.createElement('div');el.className='msg '+who;el.textContent=text;chat.appendChild(el);chat.scrollTop=chat.scrollHeight;if(save){const h=readJson(HISTORY_KEY,[]);h.push({text,who});writeJson(HISTORY_KEY,h.slice(-200))}}
+function renderHistory(){chat.innerHTML='';const h=readJson(HISTORY_KEY,[]);if(h.length)h.forEach(m=>addMessage(m.text,m.who,false));else addMessage('Привет! Я локальный чат. Задай вопрос или добавь ответы в базу.', 'bot',true)}
+function renderWords(){const root=document.getElementById('wordsList');root.innerHTML='';const words=getWords();const keys=Object.keys(words);if(!keys.length){root.innerHTML='<p class="small">Словарь пока пуст.</p>';return}keys.forEach(k=>{const d=document.createElement('div');d.className='item';const t=document.createElement('span');t.textContent=k+' — '+words[k];const b=document.createElement('button');b.textContent='Удалить';b.onclick=()=>{const w=getWords();delete w[k];setWords(w);renderWords()};d.append(t,b);root.appendChild(d)})}
+function renderDb(){const root=document.getElementById('dbList');root.innerHTML='';const db=getDb();db.forEach((entry,i)=>{const d=document.createElement('div');d.className='item';const t=document.createElement('div');t.textContent='Вопрос: '+entry.q+'\\nОтвет: '+entry.a;const b=document.createElement('button');b.textContent='Удалить';b.onclick=()=>{const x=getDb();x.splice(i,1);setDb(x);renderDb()};d.append(t,b);root.appendChild(d)})}
+function makeReply(message){const text=normalize(message), db=getDb(), words=getWords();let best=null,bestScore=0;
+ for(const entry of db){const variants=String(entry.q).split(/[;,\\n]/).map(normalize).filter(Boolean);let score=0;for(const v of variants){if(text===v)score=Math.max(score,100+v.length);else if(v.length>2&&text.includes(v))score=Math.max(score,10+v.length);else{const tokens=v.split(' ').filter(t=>t.length>2);const hits=tokens.filter(t=>text.includes(t)).length;if(tokens.length&&hits)score=Math.max(score,10*hits/tokens.length)}}if(score>bestScore){bestScore=score;best=entry}}
+ if(best&&bestScore>=8)return best.a;
+ const found=[];for(const k of Object.keys(words)){if(text.includes(normalize(k))||normalize(message).includes(normalize(words[k])))found.push(k)}
+ if(found.length){return 'В твоём словаре '+found.map(k=>'«'+k+'» означает: '+words[k]).join('. ')+'. Если хочешь, добавь точный вопрос и ответ в базу.'}
+ const style=document.getElementById('style').value;
+ const prefix=style==='playful'?'Интересный вопрос! ':style==='serious'?'В локальной базе нет точного ответа. ':'Пока не знаю точного ответа. ';
+ return prefix+'Добавь этот вопрос и нужный ответ в раздел «База вопросов и ответов», и я смогу отвечать на него без OpenAI.';
+}
+function send(){const message=input.value.trim();if(!message)return;addMessage(message,'user');input.value='';addMessage(makeReply(message),'bot')}
+document.getElementById('sendBtn').onclick=send;input.addEventListener('keydown',e=>{if(e.key==='Enter')send()});
+document.getElementById('addAnswer').onclick=()=>{const q=document.getElementById('question').value.trim(),a=document.getElementById('answer').value.trim();if(!q||!a){alert('Заполни вопрос и ответ.');return}const db=getDb();const idx=db.findIndex(x=>normalize(x.q)===normalize(q));if(idx>=0)db[idx]={q,a};else db.push({q,a});setDb(db);document.getElementById('question').value='';document.getElementById('answer').value='';renderDb();alert('Ответ сохранён локально.')};
+document.getElementById('addWord').onclick=()=>{const k=document.getElementById('wordKey').value.trim(),v=document.getElementById('wordValue').value.trim();if(!k||!v){alert('Введи слово и значение.');return}const w=getWords();w[k]=v;setWords(w);document.getElementById('wordKey').value='';document.getElementById('wordValue').value='';renderWords()};
+document.getElementById('clearWords').onclick=()=>{if(confirm('Очистить весь словарь?')){setWords({});renderWords()}};
+document.getElementById('clearChat').onclick=()=>{if(confirm('Очистить историю чата?')){writeJson(HISTORY_KEY,[]);chat.innerHTML='';addMessage('История очищена. Чем могу помочь?','bot')}};
+document.getElementById('style').value=localStorage.getItem(STYLE_KEY)||'friendly';document.getElementById('style').onchange=e=>localStorage.setItem(STYLE_KEY,e.target.value);
+document.getElementById('exportDb').onclick=()=>{const payload={answers:getDb(),dictionary:getWords()};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='offline_chat_database.json';a.click();URL.revokeObjectURL(url)};
+document.getElementById('importDb').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);if(Array.isArray(data)){setDb(data)}else if(data&&Array.isArray(data.answers)){setDb(data.answers);if(data.dictionary&&typeof data.dictionary==='object')setWords(data.dictionary)}else throw new Error('Неверный формат JSON');renderDb();renderWords();alert('База импортирована.')}catch(err){alert('Ошибка импорта: '+err.message)}e.target.value=''};r.readAsText(f,'utf-8')};
+if(!localStorage.getItem(DB_KEY))setDb(starterDb.slice());
+renderWords();renderDb();renderHistory();
+</script>
+</body>
+</html>
