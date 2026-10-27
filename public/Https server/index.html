@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile HTTPS App</title>
+
+<style>
+body {
+  margin: 0;
+  background: #0f0f0f;
+  color: #00ff88;
+  font-family: monospace;
+  padding: 15px;
+}
+
+h1 {
+  font-size: 22px;
+  text-align: center;
+}
+
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 10px;
+  font-size: 18px;
+  background: #00ff88;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+button:active {
+  background: #00cc66;
+}
+
+.box {
+  margin-top: 15px;
+  padding: 10px;
+  border: 1px solid #00ff88;
+  border-radius: 10px;
+  white-space: pre-line;
+}
+</style>
+</head>
+
+<body>
+
+<h1>📱 HTTPS Web App</h1>
+
+<button onclick="sayHello()">Натисни</button>
+
+<div class="box" id="out">
+Завантаження...
+</div>
+
+<script>
+const KEY = "saved_text";
+
+// загрузка сохранённых данных
+function loadData() {
+  const saved = localStorage.getItem(KEY);
+  if (saved) {
+    document.getElementById("out").innerText = saved;
+  } else {
+    document.getElementById("out").innerText = "Даних ще нема";
+  }
+}
+
+// сохранение данных
+function saveData(text) {
+  localStorage.setItem(KEY, text);
+}
+
+// кнопка
+function sayHello() {
+  const text =
+    "HTTPS працює ✔️\n" +
+    "Збережено в LocalStorage\n" +
+    "Час: " + new Date().toLocaleTimeString();
+
+  document.getElementById("out").innerText = text;
+  saveData(text);
+}
+
+// старт
+loadData();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style></style>
+</head>
+<body><!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Open Watcom C — пример сервера сайта</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{font-family:system-ui;background:#0f172a;color:#e5e7eb;padding:24px;line-height:1.6}
+h1,h2,h3{color:#93c5fd}
+a{color:#60a5fa}
+pre{background:#020617;padding:14px;border-radius:8px;overflow:auto}
+ul{margin-left:20px}
+hr{border:0;border-top:1px solid #334155;margin:32px 0}
+code{color:#a5b4fc}
+</style>
+</head>
+<body>
+
+<h1>Open Watcom C — сервер, запускающий сайт</h1>
+<p>
+Этот сайт описывает <b>пример программы на языке C (Open Watcom)</b>,
+которая работает как <b>простой HTTP-сервер</b> и
+<b>отдаёт веб-страницу браузеру</b>.
+</p>
+
+<hr>
+
+<h2 id="nav">Навигация</h2>
+<ul>
+<li><a href="#idea">Идея программы</a></li>
+<li><a href="#what">Что делает сервер</a></li>
+<li><a href="#arch">Архитектура</a></li>
+<li><a href="#logic">Логика работы</a></li>
+<li><a href="#components">Компоненты программы</a></li>
+<li><a href="#http">Как работает HTTP</a></li>
+<li><a href="#run">Запуск сервера</a></li>
+<li><a href="#limits">Ограничения</a></li>
+<li><a href="#why">Зачем это нужно</a></li>
+</ul>
+
+<hr>
+
+<h2 id="idea">Идея программы</h2>
+<p>
+Программа написана на <b>C (Open Watcom)</b> и запускается в:
+</p>
+<ul>
+<li>DOS / FreeDOS</li>
+<li>DOSBox</li>
+<li>WebVM</li>
+</ul>
+
+<p>
+Она открывает сетевой порт и работает как <b>минимальный веб-сервер</b>,
+без Linux, Windows и Apache.
+</p>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="what">Что делает сервер</h2>
+<ol>
+<li>Инициализирует сетевой стек DOS</li>
+<li>Открывает TCP-порт (например 8080)</li>
+<li>Ждёт подключение браузера</li>
+<li>Принимает HTTP-запрос</li>
+<li>Отправляет HTML-страницу</li>
+<li>Закрывает соединение</li>
+</ol>
+
+<p>
+В результате браузер отображает <b>сайт, запущенный программой на C</b>.
+</p>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="arch">Архитектура</h2>
+
+<pre>
+[ Браузер ]
+      |
+      | HTTP
+      |
+[ TCP/IP стек DOS ]
+      |
+[ Сервер на C (Open Watcom) ]
+      |
+[ HTML-ответ ]
+</pre>
+
+<p>
+Вся логика сервера реализована вручную,
+без библиотек высокого уровня.
+</p>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="logic">Логика работы программы</h2>
+
+<pre>
+start program
+ |
+ |-- init network
+ |
+ |-- open socket
+ |
+ |-- listen port
+ |
+ |-- wait request
+ |
+ |-- send HTTP headers
+ |
+ |-- send HTML page
+ |
+ |-- close connection
+ |
+end program
+</pre>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="components">Основные компоненты программы</h2>
+
+<h3>main()</h3>
+<p>
+Точка входа. Запускает сервер и основной цикл.
+</p>
+
+<h3>Сетевой код</h3>
+<p>
+Работа с TCP-сокетом через DOS TCP/IP стек (mTCP / WATTCP).
+</p>
+
+<h3>HTTP-ответ</h3>
+<p>
+Отправка текста:
+</p>
+
+<pre>
+HTTP/1.0 200 OK
+Content-Type: text/html
+
+&lt;html&gt;...&lt;/html&gt;
+</pre>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="http">Как работает HTTP в этом примере</h2>
+
+<ul>
+<li>HTTP обрабатывается вручную</li>
+<li>Парсится только первая строка</li>
+<li>Отдаётся статическая HTML-страница</li>
+</ul>
+
+<p>
+Это минимальная реализация протокола HTTP.
+</p>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="run">Как запускается сайт</h2>
+
+<ol>
+<li>Запустить DOS / DOSBox / WebVM</li>
+<li>Настроить TCP/IP (mTCP)</li>
+<li>Выполнить <code>SETENV.BAT</code></li>
+<li>Запустить сервер:
+<pre>server.exe</pre>
+</li>
+<li>Открыть в браузере:
+<pre>http://IP:PORT</pre>
+</li>
+</ol>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="limits">Ограничения</h2>
+
+<ul>
+<li>один клиент за раз</li>
+<li>нет HTTPS</li>
+<li>нет динамического контента</li>
+<li>учебное назначение</li>
+</ul>
+
+<p>
+Этот сервер предназначен для обучения и демонстрации.
+</p>
+
+<a href="#nav">↑ наверх</a>
+
+<hr>
+
+<h2 id="why">Зачем этот пример</h2>
+
+<p>
+Этот пример показывает, что язык <b>C (Open Watcom)</b> способен:
+</p>
+
+<ul>
+<li>работать с сетью</li>
+<li>реализовывать сервер</li>
+<li>отдавать сайт</li>
+<li>работать даже в DOS</li>
+</ul>
+
+<p>
+Это демонстрация <b>реальной мощности языка C</b>.
+</p>
+
+<hr>
+
+<p>
+<b>Этот файл — полноценный сайт.</b><br>
+Можно открыть офлайн, загрузить в WebVM или положить на хостинг.
+</p>
+
+</body>
+</html>
+<script></script>
+</body>
+</html>

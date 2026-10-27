@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WebVM — JS-DOS (Offline-ready)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin:0; padding:12px; background:#071025; color:#fff; }
+    .screen { width:100%; max-width:900px; height:360px; background:#000; border-radius:8px; margin:12px auto; display:flex; align-items:center; justify-content:center; color:#888; }
+    .controls { max-width:900px; margin:0 auto; display:flex; gap:8px; flex-wrap:wrap; }
+    button, a { background:#06b6d4; color:#002; padding:10px 14px; border-radius:8px; border:none; font-weight:600; text-decoration:none; display:inline-block; }
+    .note { max-width:900px; margin:12px auto; background:#071026; padding:10px; border-radius:8px; color:#9fb8c9; }
+    .missing { color: #ffcccb; font-weight:700; }
+    a.local { background:#9be7ff; color:#002; padding:6px 10px; border-radius:6px; text-decoration:none; }
+    #onnx-block { max-width:900px; margin:20px auto; background:#0b1a33; padding:16px; border-radius:10px; }
+    #onnx-block h3 { margin-top:0; color:#7fe1ff; }
+    #onnxPrompt { width:100%; height:120px; border-radius:8px; padding:8px; border:none; }
+    #runOnnxBtn { margin-top:10px; }
+  </style>
+  <script>
+    function loadLocalJsDos() {
+      return new Promise(function(resolve, reject){
+        var s = document.createElement('script');
+        s.src = "jsdos.min.js";
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+  </script>
+</head>
+<body>
+  <h2>WebVM — JS-DOS offline-ready</h2>
+  <div id="screen" class="screen">Нажми «Запустить JS-DOS»</div>
+  <div class="controls">
+    <button id="start">Запустить JS-DOS</button>
+    <button id="sendFileBtn">Send File (загрузить EXE в DOS)</button>
+    <a href="#" id="openOnPC">Открыть на ПК</a>
+  </div>
+  <div class="note" id="note">
+    Этот пакет <b>не содержит</b> большие бинарники (jsdos runtime, wasm и FreeDOS). Положи их в папку рядом с index.html перед запуском:
+    <ul>
+      <li><span class="missing">jsdos.min.js</span> — основной JS-DOS скрипт</li>
+      <li><span class="missing">wdosbox-misc.js</span> — поддержка WebAssembly</li>
+      <li><span class="missing">wdosbox.wasm</span> — wasm‑бинарник</li>
+      <li><span class="missing">freedos-1.2.0.img</span> — образ FreeDOS (или другой .img)</li>
+      <li>опционально: <span class="missing">open-watcom-c-dos-1.9.exe</span> — установщик OpenWatcom под DOS</li>
+      <li>опционально: *.onnx — любые ONNX‑модели</li>
+    </ul>
+    После того как положишь файлы — обнови страницу и нажми <b>Запустить JS-DOS</b>.
+  </div>
+
+<script>
+let dosbox = null;
+const screen = document.getElementById('screen');
+async function startJsDos() {
+  screen.textContent = 'Пробую загрузить локальные файлы js-dos...';
+  try {
+    await loadLocalJsDos();
+    screen.textContent = 'Локальные js-dos загружены.';
+  } catch(e) {
+    screen.textContent = 'Локальная версия js-dos не найдена. Пробую CDN...';
+    try {
+      var s = document.createElement('script');
+      s.src = "https://js-dos.com/7.4.0/jsdos.min.js";
+      await new Promise((res, rej) => { s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+      screen.textContent = 'Загружено с CDN.';
+    } catch(err) {
+      screen.textContent = 'Не удалось загрузить js-dos...';
+      return;
+    }
+  }
+  try {
+    const emu = await Dos(document.getElementById('screen'), {
+      wdosboxUrl: "wdosbox-misc.js",
+      autostart: true,
+      cycles: 3000
+    });
+    dosbox = emu;
+    screen.textContent = '';
+    try { await emu.run('freedos-1.2.0.img'); } catch(imgErr) {}
+  } catch(err) {
+    screen.textContent = 'Ошибка запуска JS-DOS: ' + err;
+  }
+}
+
+document.getElementById('start').addEventListener('click', startJsDos);
+
+document.getElementById('sendFileBtn').addEventListener('click', async () => {
+  if (!dosbox) return alert('Сначала запустите JS-DOS');
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = '.exe,.zip,.img';
+  inp.onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const ab = await file.arrayBuffer();
+    try { await dosbox.sendFile(ab, file.name); alert('Файл загружен: ' + file.name); }
+    catch(err) { alert('Ошибка: ' + err); }
+  };
+  inp.click();
+});
+</script>
+
+<div id="onnx-block">
+  <h3>ONNX модель — промт для OpenWatcom C / DOS</h3>
+  <p>Введите промт, который будет использоваться вашей ONNX‑моделью (модели должны лежать в этой же папке).</p>
+  <textarea id="onnxPrompt" placeholder="Введите промт для ONNX модели..."></textarea>
+  <button id="runOnnxBtn">Отправить промт</button>
+  <pre id="onnxOutput"></pre>
+</div>
+
+<script>
+document.getElementById('runOnnxBtn').onclick = () => {
+  const prompt = document.getElementById('onnxPrompt').value.trim();
+  if (!prompt) return alert('Введите текст промта');
+  document.getElementById('onnxOutput').textContent =
+    "[ONNX] Загружено. Обработка промта:\n" + prompt +
+    "\n(заглушка — сюда можно вставить вызов ONNX runtime)";
+};
+</script>
+
+</body>
+</html>

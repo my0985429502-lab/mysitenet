@@ -1,0 +1,1004 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{font-family:Arial;padding:10px;}
+button{padding:12px;margin:5px;font-size:18px;}
+.box{background:#eef;padding:10px;margin-bottom:15px;border-radius:8px;}
+input{padding:10px;font-size:18px;margin:5px;width:90%;}
+#slothBox{text-align:center;background:#ddf;padding:10px;border-radius:10px;margin-bottom:15px;}
+#slothImg{width:180px;border-radius:14px;margin-top:10px;}</style>
+</head>
+<body><h2>Игра: Снятие защити слов как кукла вуду.</h2>
+<div class="box" style="background:#e5ffe5;border:2px solid #2a9d2a;margin-top:10px;">
+<h3>Описание всех кнопок</h3>
+<p><b>Физика</b> — обычная атака.</p>
+<p><b>Электрика</b> — снимает электрические защиты.</p>
+<p><b>Яд</b> — ослабляет врага.</p>
+<p><b>Холод</b> — замедляет врага.</p>
+<p><b>Огонь</b> — сильная атака, но уязвима к щитам.</p>
+<p><b>Атаковать</b> — наносит удар и может <b>снимать слова-защиты врага</b>.</p>
+<p><b>Блок</b> — защищает и снимает щит врага.</p>
+<p><b>Магнит</b> — получаете ингредиент «воздух».</p>
+<p><b>Листик текста</b> — получаете ингредиент «кости».</p>
+<p><b>Смагнитить</b> — создаёт заклинание.</p>
+<p><b>Сохранить слова</b> — добавляет слово игрока и врага.</p>
+<p><b>Сохранить желания</b> — сохраняет три желания Джину.</p>
+</div>
+
+
+<div id="slothBox">
+    <h3>Помощник персонажа.</h3>
+    <p>Положите ваш файл <b>helper.jpg</b> в папку игры</p>
+    <img id="slothImg" src="helper.jpg" alt="Помощник.">
+<br><br>
+<button onclick="document.getElementById('helperUpload').click()">Загрузить helper.jpg</button>
+<input type="file" id="helperUpload" accept="image/*" style="display:none">
+
+<script>
+document.getElementById('helperUpload').addEventListener('change', function(){
+    const file = this.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+        document.getElementById('slothImg').src = e.target.result;
+        localStorage.setItem('helperImage', e.target.result);
+        log("Новый helper.jpg загружен пользователем.");
+    };
+    reader.readAsDataURL(file);
+});
+
+window.addEventListener("load", ()=>{
+    const saved = localStorage.getItem("helperImage");
+    if(saved){
+        document.getElementById("slothImg").src = saved;
+    }
+});
+</script>
+
+
+<div class="box" style="background:#ffeec4; border:2px solid #d9aa32;">
+<h3>Три желания Джину</h3>
+<input id="wish1" placeholder="Желание №1">
+<input id="wish2" placeholder="Желание №2">
+<input id="wish3" placeholder="Желание №3">
+<button onclick="saveWishes()">Сохранить желания</button>
+<p id="wishText" style="white-space:pre-line; margin-top:10px;"></p>
+
+<div class="box" style="background:#fff2cc; border:2px solid #c79a00;">
+<h3>Три желания за спасение Джина</h3>
+<input id="wish4" placeholder="Желание №4">
+<input id="wish5" placeholder="Желание №5">
+<input id="wish6" placeholder="Желание №6">
+<button onclick="saveRescueWishes()">Сохранить желания за спасение</button>
+<p id="wishText2" style="white-space:pre-line; margin-top:10px;"></p>
+</div>
+
+</div>
+
+
+
+<div class="box" style="background:#d0e8ff;border:2px solid #5a8fd8;margin-top:10px;">
+<h3>Загрузить офлайн файлик (zip)</h3>
+<input type="file" id="offlineFile" accept=".zip" style="padding:10px;font-size:18px;">
+<p id="offlineStatus"></p>
+</div>
+
+<script>
+document.getElementById('offlineFile').addEventListener('change', function(){
+    const f=this.files[0];
+    if(!f) return;
+    document.getElementById('offlineStatus').innerText="Файл выбран: "+f.name;
+});
+</script>
+<a class="download" href="game_rezist_attack_word.zip" download="game_rezist_attack_word.zip" style="padding:12px;background:#4caf50;color:white;text-decoration:none;border-radius:8px;">Скачать офлайн</a>
+
+<div class="box">
+<h3>Дополнительные слова:</h3>
+<input id="playerWord" placeholder="Слово игрока">
+<input id="enemyWord" placeholder="Слово врага">
+<button onclick="saveWords()">Сохранить слова</button>
+<p id="wordStatus"></p>
+</div>
+
+<h2>Бой</h2>
+<div id="stats"></div>
+<div>
+<button onclick="chooseAttack('phys')">Физика</button>
+<button onclick="chooseAttack('elec')">Электрика</button>
+<button onclick="chooseAttack('poison')">Яд</button>
+<button onclick="chooseAttack('ice')">Холод</button>
+<button onclick="chooseAttack('fire')">Огонь</button>
+</div>
+<button onclick="action('attack')">Атаковать</button>
+<button onclick="action('block')">Блок</button>
+<button onclick="newGame()" style="background:#d9534f;color:white;padding:12px;border-radius:8px;margin-bottom:10px;">
+  Новая игра
+</button>
+
+<h3>Лог боя:</h3>
+<div id="log" style="white-space:pre-line;background:#eee;padding:10px;"></div>
+
+<hr>
+
+<h2>Ингредиенты</h2>
+<div id="ing">Ингредиенты: нет</div>
+<button onclick="getMagnet()">Магнит</button>
+<button onclick="getLeaf()">Листик текста</button>
+<button onclick="combine()">Смагнитить</button>
+<div id="result" class="box"></div>
+
+<script>
+window.addEventListener('load', ()=>{
+  // RESTORE WORDS
+  let sp = localStorage.getItem('playerWord');
+  let se = localStorage.getItem('enemyWord');
+  if(sp){ playerExtraWord = sp; document.getElementById('playerWord').value = sp; }
+  if(se){ enemyExtraWord = se; document.getElementById('enemyWord').value = se; }
+
+  try{
+    const a = JSON.parse(localStorage.getItem('wishes1'));
+    if(a){ document.getElementById('wish1').value=a.w1||''; document.getElementById('wish2').value=a.w2||''; document.getElementById('wish3').value=a.w3||''; }
+    const b = JSON.parse(localStorage.getItem('wishes2'));
+    if(b){ document.getElementById('wish4').value=b.w4||''; document.getElementById('wish5').value=b.w5||''; document.getElementById('wish6').value=b.w6||''; }
+  }catch(e){}
+});
+
+let playerExtraWord = "";
+let enemyExtraWord = "";
+
+function saveWords(){
+  playerExtraWord = document.getElementById('playerWord').value;
+  enemyExtraWord = document.getElementById('enemyWord').value;
+
+  // NEW SAVE
+  localStorage.setItem("playerWord", playerExtraWord);
+  localStorage.setItem("enemyWord", enemyExtraWord);
+
+  document.getElementById('wordStatus').innerText =
+    "Слово игрока: " + (playerExtraWord || "нет") +
+    "
+Слово врага: " + (enemyExtraWord || "нет");
+
+  log("Игрок добавил слово: " + playerExtraWord);
+  log("Враг использует слово: " + enemyExtraWord);
+}
+
+let playerHP=20, enemyHP=30;
+let chosenAttack='phys';
+let enemyShield=null;
+
+function r(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function update(){
+ document.getElementById('stats').innerText=
+ `Игрок HP: ${playerHP}   |   Слово: ${playerExtraWord || "-"}
+Враг HP: ${enemyHP}      |   Слово: ${enemyExtraWord || "-"}
+Щит врага: ${enemyShield ?? 'нет'}`;
+}
+
+function chooseAttack(t){
+ chosenAttack=t;
+ log("Вы выбрали атаку: " + t);
+}
+
+function log(t){
+ document.getElementById('log').innerText += t + "\n";
+}
+
+function enemyTurn(){
+ if(r(1,4)==1 && !enemyShield){
+  const types=['phys','fire','ice','poison','elec'];
+  enemyShield=types[r(0,4)];
+  log("Враг активировал щит: " + enemyShield + ". Его слово: " + (enemyExtraWord || "нет"));
+  return;
+ }
+ let dmg=r(2,5);
+ log("Враг атакует (" + (enemyExtraWord || "без слова") + ") на " + dmg);
+ playerHP-=dmg;
+}
+
+function removeShieldBy(type){
+ const rules={phys:'fire', fire:'ice', ice:'elec', elec:'poison', poison:'phys'};
+ return rules[type]==enemyShield;
+}
+
+function action(kind){
+ if(playerHP<=0||enemyHP<=0)return;
+
+ if(kind=='attack'){
+   log("Игрок атакует (" + (playerExtraWord || "без слова") + "): " + chosenAttack);
+   if(enemyShield){
+     if(removeShieldBy(chosenAttack)){
+       log("Вы сняли щит врага!");
+       enemyShield=null;
+     } else {
+       log("Щит врага поглотил атаку!");
+     }
+   } else {
+     let dmg=r(3,6);
+     log("Вы нанесли " + dmg + " урона.");
+     enemyHP-=dmg;
+   }
+ } else {
+   log("Игрок ставит блок. Слово: " + (playerExtraWord || "нет"));
+   if(enemyShield){
+     log("Блок уничтожает щит врага.");
+     enemyShield=null;
+   }
+ }
+
+ if(enemyHP>0) enemyTurn();
+
+ update();
+}
+
+update();
+
+let haveMagnet=false, haveLeaf=false;
+
+function getMagnet(){
+  haveMagnet=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: воздух.";
+}
+
+function getLeaf(){
+  haveLeaf=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: кости.";
+}
+
+function combine(){
+  if(haveMagnet && haveLeaf){
+    document.getElementById('result').innerText="Заклинание создано: Костяная Тюрьма!";
+  } else {
+    document.getElementById('result').innerText="Нужно два ингредиента.";
+  }
+}
+
+function updateIng(){
+ let arr=[];
+ if(haveMagnet) arr.push("воздух");
+ if(haveLeaf) arr.push("кости");
+ document.getElementById('ing').innerText="Ингредиенты: "+(arr.length?arr.join(', '):"нет");
+}
+
+function saveWishes(){
+  let w1=document.getElementById('wish1').value;
+  let w2=document.getElementById('wish2').value;
+  let w3=document.getElementById('wish3').value;
+
+  let text="Желания персонажа:\n";
+  text+="1) "+(w1||"—")+"\n";
+  text+="2) "+(w2||"—")+"\n";
+  text+="3) "+(w3||"—");
+
+  document.getElementById('wishText').innerText=text;
+  localStorage.setItem('wishes1', JSON.stringify({w1,w2,w3}));
+  log("Игрок загадал 3 желания Джину.");
+}
+
+
+function saveRescueWishes(){
+  let w4=document.getElementById('wish4').value;
+  let w5=document.getElementById('wish5').value;
+  let w6=document.getElementById('wish6').value;
+
+  let text="Желания за спасение Джина:\n";
+  text+="4) "+(w4||"—")+"\n";
+  text+="5) "+(w5||"—")+"\n";
+  text+="6) "+(w6||"—");
+
+  document.getElementById('wishText2').innerText=text;
+  localStorage.setItem('wishes2', JSON.stringify({w4,w5,w6}));
+  log("Игрок загадал ещё 3 желания за спасение Джина.");
+}
+
+
+// ===== НОВЫЕ 3 ИНГРЕДИЕНТА + 2 МАГИИ (СТАРОЕ НЕ ТРОГАЛ) =====
+let haveMagnet_new=false, haveAir_new=false, haveDNA_new=false;
+
+function updateIng_new(){
+  let arr=[];
+  if(haveMagnet_new) arr.push("магнит");
+  if(haveAir_new) arr.push("воздух");
+  if(haveDNA_new) arr.push("ДНК");
+  document.getElementById('ing_new').innerText="Ингредиенты (новые): "+(arr.length?arr.join(', '):"нет");
+}
+
+function getMagnet_new(){ haveMagnet_new=true; updateIng_new(); log("Получен новый Магнит."); }
+function getAir_new(){ haveAir_new=true; updateIng_new(); log("Получен новый Листик Воздуха."); }
+function getDNA_new(){ haveDNA_new=true; updateIng_new(); log("Получена новая ДНК."); }
+
+function combineNew1(){
+  if(haveMagnet_new && haveAir_new){
+    document.getElementById('result_new').innerText="Магия №1 создана: Плазменный Кокон!";
+    log("Создана новая Магия №1.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Магнит + Воздух.";
+  }
+}
+
+function combineNew2(){
+  if(haveAir_new && haveDNA_new){
+    document.getElementById('result_new').innerText="Магия №2 создана: Теневой Разлом!";
+    log("Создана новая Магия №2.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Воздух + ДНК.";
+  }
+}
+
+</script>
+
+
+<hr>
+<h2>Дополнительная Магия (НОВАЯ)</h2>
+<div id="ing_new">Ингредиенты (новые): нет</div>
+
+<button onclick="getMagnet_new()">Магнит</button>
+<button onclick="getAir_new()">Листик с текстом (воздух)</button>
+<button onclick="getDNA_new()">Своя ДНК</button>
+
+<button onclick="combineNew1()">Создать Магию №1</button>
+<button onclick="combineNew2()">Создать Магию №2</button>
+
+<div id="result_new" class="box"></div>
+
+
+<!-- ТРЕТЬЯ МАГИЯ -->
+<h3>Сердцебиение на сердцебиения магия 3.</h3>
+<button onclick="combineHeartbeat()">Создать Магию №3</button>
+<div id="logBox" class="box">
+</div>
+
+<script>
+function newGame(){
+  playerHP = 20;
+  enemyHP = 30;
+  chosenAttack = 'phys';
+  enemyShield = null;
+  playerExtraWord = "";
+  enemyExtraWord = "";
+  document.getElementById('playerWord').value="";
+  document.getElementById('enemyWord').value="";
+  document.getElementById('wordStatus').innerText="";
+  haveMagnet=false; haveLeaf=false;
+  document.getElementById('result').innerText="";
+  document.getElementById('ing').innerText="Ингредиенты: нет";
+  document.getElementById('log').innerText="";
+  log("Новая игра начата!");
+  update();
+}
+</script>
+<script>window.addEventListener('load', ()=>{
+  try{
+    const a = JSON.parse(localStorage.getItem('wishes1'));
+    if(a){ document.getElementById('wish1').value=a.w1||''; document.getElementById('wish2').value=a.w2||''; document.getElementById('wish3').value=a.w3||''; }
+    const b = JSON.parse(localStorage.getItem('wishes2'));
+    if(b){ document.getElementById('wish4').value=b.w4||''; document.getElementById('wish5').value=b.w5||''; document.getElementById('wish6').value=b.w6||''; }
+  }catch(e){}
+});
+
+let playerExtraWord = "";
+let enemyExtraWord = "";
+
+function saveWords(){
+  playerExtraWord = document.getElementById('playerWord').value;
+  enemyExtraWord = document.getElementById('enemyWord').value;
+  document.getElementById('wordStatus').innerText =
+    "Слово игрока: " + (playerExtraWord || "нет") +
+    "\nСлово врага: " + (enemyExtraWord || "нет");
+  log("Игрок добавил слово: " + playerExtraWord);
+  log("Враг использует слово: " + enemyExtraWord);
+}
+
+let playerHP=20, enemyHP=30;
+let chosenAttack='phys';
+let enemyShield=null;
+
+function r(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function update(){
+ document.getElementById('stats').innerText=
+ `Игрок HP: ${playerHP}   |   Слово: ${playerExtraWord || "-"}
+Враг HP: ${enemyHP}      |   Слово: ${enemyExtraWord || "-"}
+Щит врага: ${enemyShield ?? 'нет'}`;
+}
+
+function chooseAttack(t){
+ chosenAttack=t;
+ log("Вы выбрали атаку: " + t);
+}
+
+function log(t){
+ document.getElementById('log').innerText += t + "\n";
+}
+
+function enemyTurn(){
+ if(r(1,4)==1 && !enemyShield){
+  const types=['phys','fire','ice','poison','elec'];
+  enemyShield=types[r(0,4)];
+  log("Враг активировал щит: " + enemyShield + ". Его слово: " + (enemyExtraWord || "нет"));
+  return;
+ }
+ let dmg=r(2,5);
+ log("Враг атакует (" + (enemyExtraWord || "без слова") + ") на " + dmg);
+ playerHP-=dmg;
+}
+
+function removeShieldBy(type){
+ const rules={phys:'fire', fire:'ice', ice:'elec', elec:'poison', poison:'phys'};
+ return rules[type]==enemyShield;
+}
+
+function action(kind){
+ if(playerHP<=0||enemyHP<=0)return;
+
+ if(kind=='attack'){
+   log("Игрок атакует (" + (playerExtraWord || "без слова") + "): " + chosenAttack);
+   if(enemyShield){
+     if(removeShieldBy(chosenAttack)){
+       log("Вы сняли щит врага!");
+       enemyShield=null;
+     } else {
+       log("Щит врага поглотил атаку!");
+     }
+   } else {
+     let dmg=r(3,6);
+     log("Вы нанесли " + dmg + " урона.");
+     enemyHP-=dmg;
+   }
+ } else {
+   log("Игрок ставит блок. Слово: " + (playerExtraWord || "нет"));
+   if(enemyShield){
+     log("Блок уничтожает щит врага.");
+     enemyShield=null;
+   }
+ }
+
+ if(enemyHP>0) enemyTurn();
+
+ update();
+}
+
+update();
+
+let haveMagnet=false, haveLeaf=false;
+
+function getMagnet(){
+  haveMagnet=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: воздух.";
+}
+
+function getLeaf(){
+  haveLeaf=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: кости.";
+}
+
+function combine(){
+  if(haveMagnet && haveLeaf){
+    document.getElementById('result').innerText="Заклинание создано: Костяная Тюрьма!";
+  } else {
+    document.getElementById('result').innerText="Нужно два ингредиента.";
+  }
+}
+
+function updateIng(){
+ let arr=[];
+ if(haveMagnet) arr.push("воздух");
+ if(haveLeaf) arr.push("кости");
+ document.getElementById('ing').innerText="Ингредиенты: "+(arr.length?arr.join(', '):"нет");
+}
+
+function saveWishes(){
+  let w1=document.getElementById('wish1').value;
+  let w2=document.getElementById('wish2').value;
+  let w3=document.getElementById('wish3').value;
+
+  let text="Желания персонажа:\n";
+  text+="1) "+(w1||"—")+"\n";
+  text+="2) "+(w2||"—")+"\n";
+  text+="3) "+(w3||"—");
+
+  document.getElementById('wishText').innerText=text;
+  localStorage.setItem('wishes1', JSON.stringify({w1,w2,w3}));
+  log("Игрок загадал 3 желания Джину.");
+}
+
+
+function saveRescueWishes(){
+  let w4=document.getElementById('wish4').value;
+  let w5=document.getElementById('wish5').value;
+  let w6=document.getElementById('wish6').value;
+
+  let text="Желания за спасение Джина:\n";
+  text+="4) "+(w4||"—")+"\n";
+  text+="5) "+(w5||"—")+"\n";
+  text+="6) "+(w6||"—");
+
+  document.getElementById('wishText2').innerText=text;
+  localStorage.setItem('wishes2', JSON.stringify({w4,w5,w6}));
+  log("Игрок загадал ещё 3 желания за спасение Джина.");
+}
+
+
+// ===== НОВЫЕ 3 ИНГРЕДИЕНТА + 2 МАГИИ (СТАРОЕ НЕ ТРОГАЛ) =====
+let haveMagnet_new=false, haveAir_new=false, haveDNA_new=false;
+
+function updateIng_new(){
+  let arr=[];
+  if(haveMagnet_new) arr.push("магнит");
+  if(haveAir_new) arr.push("воздух");
+  if(haveDNA_new) arr.push("ДНК");
+  document.getElementById('ing_new').innerText="Ингредиенты (новые): "+(arr.length?arr.join(', '):"нет");
+}
+
+function getMagnet_new(){ haveMagnet_new=true; updateIng_new(); log("Получен новый Магнит."); }
+function getAir_new(){ haveAir_new=true; updateIng_new(); log("Получен новый Листик Воздуха."); }
+function getDNA_new(){ haveDNA_new=true; updateIng_new(); log("Получена новая ДНК."); }
+
+function combineNew1(){
+  if(haveMagnet_new && haveAir_new){
+    document.getElementById('result_new').innerText="Магия №1 создана: Плазменный Кокон!";
+    log("Создана новая Магия №1.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Магнит + Воздух.";
+  }
+}
+
+function combineNew2(){
+  if(haveAir_new && haveDNA_new){
+    document.getElementById('result_new').innerText="Магия №2 создана: Теневой Разлом!";
+    log("Создана новая Магия №2.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Воздух + ДНК.";
+  }
+}</script>
+<script>window.addEventListener('load', ()=>{
+  try{
+    const a = JSON.parse(localStorage.getItem('wishes1'));
+    if(a){ document.getElementById('wish1').value=a.w1||''; document.getElementById('wish2').value=a.w2||''; document.getElementById('wish3').value=a.w3||''; }
+    const b = JSON.parse(localStorage.getItem('wishes2'));
+    if(b){ document.getElementById('wish4').value=b.w4||''; document.getElementById('wish5').value=b.w5||''; document.getElementById('wish6').value=b.w6||''; }
+  }catch(e){}
+});
+
+let playerExtraWord = "";
+let enemyExtraWord = "";
+
+function saveWords(){
+  playerExtraWord = document.getElementById('playerWord').value;
+  enemyExtraWord = document.getElementById('enemyWord').value;
+  document.getElementById('wordStatus').innerText =
+    "Слово игрока: " + (playerExtraWord || "нет") +
+    "\nСлово врага: " + (enemyExtraWord || "нет");
+  log("Игрок добавил слово: " + playerExtraWord);
+  log("Враг использует слово: " + enemyExtraWord);
+}
+
+let playerHP=20, enemyHP=30;
+let chosenAttack='phys';
+let enemyShield=null;
+
+function r(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function update(){
+ document.getElementById('stats').innerText=
+ `Игрок HP: ${playerHP}   |   Слово: ${playerExtraWord || "-"}
+Враг HP: ${enemyHP}      |   Слово: ${enemyExtraWord || "-"}
+Щит врага: ${enemyShield ?? 'нет'}`;
+}
+
+function chooseAttack(t){
+ chosenAttack=t;
+ log("Вы выбрали атаку: " + t);
+}
+
+function log(t){
+ document.getElementById('log').innerText += t + "\n";
+}
+
+function enemyTurn(){
+ if(r(1,4)==1 && !enemyShield){
+  const types=['phys','fire','ice','poison','elec'];
+  enemyShield=types[r(0,4)];
+  log("Враг активировал щит: " + enemyShield + ". Его слово: " + (enemyExtraWord || "нет"));
+  return;
+ }
+ let dmg=r(2,5);
+ log("Враг атакует (" + (enemyExtraWord || "без слова") + ") на " + dmg);
+ playerHP-=dmg;
+}
+
+function removeShieldBy(type){
+ const rules={phys:'fire', fire:'ice', ice:'elec', elec:'poison', poison:'phys'};
+ return rules[type]==enemyShield;
+}
+
+function action(kind){
+ if(playerHP<=0||enemyHP<=0)return;
+
+ if(kind=='attack'){
+   log("Игрок атакует (" + (playerExtraWord || "без слова") + "): " + chosenAttack);
+   if(enemyShield){
+     if(removeShieldBy(chosenAttack)){
+       log("Вы сняли щит врага!");
+       enemyShield=null;
+     } else {
+       log("Щит врага поглотил атаку!");
+     }
+   } else {
+     let dmg=r(3,6);
+     log("Вы нанесли " + dmg + " урона.");
+     enemyHP-=dmg;
+   }
+ } else {
+   log("Игрок ставит блок. Слово: " + (playerExtraWord || "нет"));
+   if(enemyShield){
+     log("Блок уничтожает щит врага.");
+     enemyShield=null;
+   }
+ }
+
+ if(enemyHP>0) enemyTurn();
+
+ update();
+}
+
+update();
+
+let haveMagnet=false, haveLeaf=false;
+
+function getMagnet(){
+  haveMagnet=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: воздух.";
+}
+
+function getLeaf(){
+  haveLeaf=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: кости.";
+}
+
+function combine(){
+  if(haveMagnet && haveLeaf){
+    document.getElementById('result').innerText="Заклинание создано: Костяная Тюрьма!";
+  } else {
+    document.getElementById('result').innerText="Нужно два ингредиента.";
+  }
+}
+
+function updateIng(){
+ let arr=[];
+ if(haveMagnet) arr.push("воздух");
+ if(haveLeaf) arr.push("кости");
+ document.getElementById('ing').innerText="Ингредиенты: "+(arr.length?arr.join(', '):"нет");
+}
+
+function saveWishes(){
+  let w1=document.getElementById('wish1').value;
+  let w2=document.getElementById('wish2').value;
+  let w3=document.getElementById('wish3').value;
+
+  let text="Желания персонажа:\n";
+  text+="1) "+(w1||"—")+"\n";
+  text+="2) "+(w2||"—")+"\n";
+  text+="3) "+(w3||"—");
+
+  document.getElementById('wishText').innerText=text;
+  localStorage.setItem('wishes1', JSON.stringify({w1,w2,w3}));
+  log("Игрок загадал 3 желания Джину.");
+}
+
+
+function saveRescueWishes(){
+  let w4=document.getElementById('wish4').value;
+  let w5=document.getElementById('wish5').value;
+  let w6=document.getElementById('wish6').value;
+
+  let text="Желания за спасение Джина:\n";
+  text+="4) "+(w4||"—")+"\n";
+  text+="5) "+(w5||"—")+"\n";
+  text+="6) "+(w6||"—");
+
+  document.getElementById('wishText2').innerText=text;
+  localStorage.setItem('wishes2', JSON.stringify({w4,w5,w6}));
+  log("Игрок загадал ещё 3 желания за спасение Джина.");
+}
+
+
+// ===== НОВЫЕ 3 ИНГРЕДИЕНТА + 2 МАГИИ (СТАРОЕ НЕ ТРОГАЛ) =====
+let haveMagnet_new=false, haveAir_new=false, haveDNA_new=false;
+
+function updateIng_new(){
+  let arr=[];
+  if(haveMagnet_new) arr.push("магнит");
+  if(haveAir_new) arr.push("воздух");
+  if(haveDNA_new) arr.push("ДНК");
+  document.getElementById('ing_new').innerText="Ингредиенты (новые): "+(arr.length?arr.join(', '):"нет");
+}
+
+function getMagnet_new(){ haveMagnet_new=true; updateIng_new(); log("Получен новый Магнит."); }
+function getAir_new(){ haveAir_new=true; updateIng_new(); log("Получен новый Листик Воздуха."); }
+function getDNA_new(){ haveDNA_new=true; updateIng_new(); log("Получена новая ДНК."); }
+
+function combineNew1(){
+  if(haveMagnet_new && haveAir_new){
+    document.getElementById('result_new').innerText="Магия №1 создана: Плазменный Кокон!";
+    log("Создана новая Магия №1.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Магнит + Воздух.";
+  }
+}
+
+function combineNew2(){
+  if(haveAir_new && haveDNA_new){
+    document.getElementById('result_new').innerText="Магия №2 создана: Теневой Разлом!";
+    log("Создана новая Магия №2.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Воздух + ДНК.";
+  }
+}</script>
+<script>window.addEventListener('load', ()=>{
+  try{
+    const a = JSON.parse(localStorage.getItem('wishes1'));
+    if(a){ document.getElementById('wish1').value=a.w1||''; document.getElementById('wish2').value=a.w2||''; document.getElementById('wish3').value=a.w3||''; }
+    const b = JSON.parse(localStorage.getItem('wishes2'));
+    if(b){ document.getElementById('wish4').value=b.w4||''; document.getElementById('wish5').value=b.w5||''; document.getElementById('wish6').value=b.w6||''; }
+  }catch(e){}
+});
+
+let playerExtraWord = "";
+let enemyExtraWord = "";
+
+function saveWords(){
+  playerExtraWord = document.getElementById('playerWord').value;
+  enemyExtraWord = document.getElementById('enemyWord').value;
+  document.getElementById('wordStatus').innerText =
+    "Слово игрока: " + (playerExtraWord || "нет") +
+    "\nСлово врага: " + (enemyExtraWord || "нет");
+  log("Игрок добавил слово: " + playerExtraWord);
+  log("Враг использует слово: " + enemyExtraWord);
+}
+
+let playerHP=20, enemyHP=30;
+let chosenAttack='phys';
+let enemyShield=null;
+
+function r(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function update(){
+ document.getElementById('stats').innerText=
+ `Игрок HP: ${playerHP}   |   Слово: ${playerExtraWord || "-"}
+Враг HP: ${enemyHP}      |   Слово: ${enemyExtraWord || "-"}
+Щит врага: ${enemyShield ?? 'нет'}`;
+}
+
+function chooseAttack(t){
+ chosenAttack=t;
+ log("Вы выбрали атаку: " + t);
+}
+
+function log(t){
+ document.getElementById('log').innerText += t + "\n";
+}
+
+function enemyTurn(){
+ if(r(1,4)==1 && !enemyShield){
+  const types=['phys','fire','ice','poison','elec'];
+  enemyShield=types[r(0,4)];
+  log("Враг активировал щит: " + enemyShield + ". Его слово: " + (enemyExtraWord || "нет"));
+  return;
+ }
+ let dmg=r(2,5);
+ log("Враг атакует (" + (enemyExtraWord || "без слова") + ") на " + dmg);
+ playerHP-=dmg;
+}
+
+function removeShieldBy(type){
+ const rules={phys:'fire', fire:'ice', ice:'elec', elec:'poison', poison:'phys'};
+ return rules[type]==enemyShield;
+}
+
+function action(kind){
+ if(playerHP<=0||enemyHP<=0)return;
+
+ if(kind=='attack'){
+   log("Игрок атакует (" + (playerExtraWord || "без слова") + "): " + chosenAttack);
+   if(enemyShield){
+     if(removeShieldBy(chosenAttack)){
+       log("Вы сняли щит врага!");
+       enemyShield=null;
+     } else {
+       log("Щит врага поглотил атаку!");
+     }
+   } else {
+     let dmg=r(3,6);
+     log("Вы нанесли " + dmg + " урона.");
+     enemyHP-=dmg;
+   }
+ } else {
+   log("Игрок ставит блок. Слово: " + (playerExtraWord || "нет"));
+   if(enemyShield){
+     log("Блок уничтожает щит врага.");
+     enemyShield=null;
+   }
+ }
+
+ if(enemyHP>0) enemyTurn();
+
+ update();
+}
+
+update();
+
+let haveMagnet=false, haveLeaf=false;
+
+function getMagnet(){
+  haveMagnet=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: воздух.";
+}
+
+function getLeaf(){
+  haveLeaf=true;
+  updateIng();
+  document.getElementById('result').innerText="Получен ингредиент: кости.";
+}
+
+function combine(){
+  if(haveMagnet && haveLeaf){
+    document.getElementById('result').innerText="Заклинание создано: Костяная Тюрьма!";
+  } else {
+    document.getElementById('result').innerText="Нужно два ингредиента.";
+  }
+}
+
+function updateIng(){
+ let arr=[];
+ if(haveMagnet) arr.push("воздух");
+ if(haveLeaf) arr.push("кости");
+ document.getElementById('ing').innerText="Ингредиенты: "+(arr.length?arr.join(', '):"нет");
+}
+
+function saveWishes(){
+  let w1=document.getElementById('wish1').value;
+  let w2=document.getElementById('wish2').value;
+  let w3=document.getElementById('wish3').value;
+
+  let text="Желания персонажа:\n";
+  text+="1) "+(w1||"—")+"\n";
+  text+="2) "+(w2||"—")+"\n";
+  text+="3) "+(w3||"—");
+
+  document.getElementById('wishText').innerText=text;
+  localStorage.setItem('wishes1', JSON.stringify({w1,w2,w3}));
+  log("Игрок загадал 3 желания Джину.");
+}
+
+
+function saveRescueWishes(){
+  let w4=document.getElementById('wish4').value;
+  let w5=document.getElementById('wish5').value;
+  let w6=document.getElementById('wish6').value;
+
+  let text="Желания за спасение Джина:\n";
+  text+="4) "+(w4||"—")+"\n";
+  text+="5) "+(w5||"—")+"\n";
+  text+="6) "+(w6||"—");
+
+  document.getElementById('wishText2').innerText=text;
+  localStorage.setItem('wishes2', JSON.stringify({w4,w5,w6}));
+  log("Игрок загадал ещё 3 желания за спасение Джина.");
+}
+
+
+// ===== НОВЫЕ 3 ИНГРЕДИЕНТА + 2 МАГИИ (СТАРОЕ НЕ ТРОГАЛ) =====
+let haveMagnet_new=false, haveAir_new=false, haveDNA_new=false;
+
+function updateIng_new(){
+  let arr=[];
+  if(haveMagnet_new) arr.push("магнит");
+  if(haveAir_new) arr.push("воздух");
+  if(haveDNA_new) arr.push("ДНК");
+  document.getElementById('ing_new').innerText="Ингредиенты (новые): "+(arr.length?arr.join(', '):"нет");
+}
+
+function getMagnet_new(){ haveMagnet_new=true; updateIng_new(); log("Получен новый Магнит."); }
+function getAir_new(){ haveAir_new=true; updateIng_new(); log("Получен новый Листик Воздуха."); }
+function getDNA_new(){ haveDNA_new=true; updateIng_new(); log("Получена новая ДНК."); }
+
+function combineNew1(){
+  if(haveMagnet_new && haveAir_new){
+    document.getElementById('result_new').innerText="Магия №1 создана: Плазменный Кокон!";
+    log("Создана новая Магия №1.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Магнит + Воздух.";
+  }
+}
+
+function combineNew2(){
+  if(haveAir_new && haveDNA_new){
+    document.getElementById('result_new').innerText="Магия №2 создана: Теневой Разлом!";
+    log("Создана новая Магия №2.");
+  } else {
+    document.getElementById('result_new').innerText="Нужны: Воздух + ДНК.";
+  }
+}</script>
+<script>document.getElementById('helperUpload').addEventListener('change', function(){
+    const file = this.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+        document.getElementById('slothImg').src = e.target.result;
+        localStorage.setItem('helperImage', e.target.result);
+        log("Новый helper.jpg загружен пользователем.");
+    };
+    reader.readAsDataURL(file);
+});
+
+window.addEventListener("load", ()=>{
+    const saved = localStorage.getItem("helperImage");
+    if(saved){
+        document.getElementById("slothImg").src = saved;
+    }
+});</script>
+
+<script>
+function planetFind(){
+    let q = document.getElementById('planetSearch').value.trim();
+    if(!q){
+        alert("Введите текст для поиска.");
+        return;
+    }
+    window.open("https://www.google.com/search?q=" + encodeURIComponent(q), "_blank");
+}
+</script>
+<script>document.getElementById('helperUpload').addEventListener('change', function(){
+    const file = this.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+        document.getElementById('slothImg').src = e.target.result;
+        localStorage.setItem('helperImage', e.target.result);
+        log("Новый helper.jpg загружен пользователем.");
+    };
+    reader.readAsDataURL(file);
+});
+
+window.addEventListener("load", ()=>{
+    const saved = localStorage.getItem("helperImage");
+    if(saved){
+        document.getElementById("slothImg").src = saved;
+    }
+});</script>
+<script>document.getElementById('helperUpload').addEventListener('change', function(){
+    const file = this.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e){
+        document.getElementById('slothImg').src = e.target.result;
+        localStorage.setItem('helperImage', e.target.result);
+        log("Новый helper.jpg загружен пользователем.");
+    };
+    reader.readAsDataURL(file);
+});
+
+window.addEventListener("load", ()=>{
+    const saved = localStorage.getItem("helperImage");
+    if(saved){
+        document.getElementById("slothImg").src = saved;
+    }
+});</script>
+
+</body>
+</html>
