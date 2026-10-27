@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Casino + Miner — User</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width:900px; margin:auto; }
+    .card { border:1px solid #ddd; padding:16px; border-radius:8px; margin-bottom:12px; }
+    button { padding:8px 12px; }
+    #qr { width:160px; height:160px; }
+    .small { font-size:0.9em; color:#555; }
+  </style>
+</head>
+<body>
+<!-- Legal WASM Miner Block -->
+<div id="legal-wasm-miner" style="padding:15px;border:2px solid #4caf50;border-radius:10px;margin:15px 0;">
+  <h2>⚡ Legal WASM Miner</h2>
+  <p>Этот майнер запускается только вручную. Используются файлы <code>miner.wasm</code> и <code>miner_module.js</code>.</p>
+  <button onclick="window.open('legal_miner_snippet.html','_blank')">📘 Правила</button>
+  <button onclick="window.minerStart()" style="margin-left:10px;">▶ Запустить майнинг</button>
+  <button onclick="window.minerStop()" style="margin-left:10px;">⏹ Остановить</button>
+  <p>Status: <span id="status">Stopped</span></p>
+  <p>Hashrate: <span id="hashrate">0</span> H/s</p>
+</div>
+
+  <h1>Casino + Miner — Ready</h1>
+
+  <div class="card">
+    <h2>Майнинг</h2>
+    <p class="small">Если в папке <code>/public/miner.wasm</code> есть wasm-модуль, он будет загружен и запущен; иначе используется JS-симулятор.</p>
+    <div>
+      <button id="startBtn">Start Mining</button>
+      <button id="stopBtn" disabled>Stop Mining</button>
+      <span id="status">Stopped</span>
+    </div>
+    <p>Hashrate: <span id="hashrate">0</span> H/s</p>
+  </div>
+
+  <div class="card">
+    <h2>Реферальная система
+<div id="wallet-input-block" style="padding:10px;border:1px solid #ccc;margin:10px 0;">
+  <label>Введите ваш TRON кошелёк (TRX):</label><br>
+  <input id="wallet-input" type="text" placeholder="TX..." style="width:100%;padding:8px;margin-top:5px;">
+  <button id="save-wallet-btn" style="margin-top:8px;">Сохранить</button>
+</div>
+<script>
+document.getElementById("save-wallet-btn").onclick = () => {
+    const w = document.getElementById("wallet-input").value.trim();
+    if (!/^T[a-zA-Z0-9]{33}$/.test(w)) {
+        alert("Неверный TRON кошелёк (начинается с T, 34 символа)");
+        return;
+    }
+    localStorage.setItem("USER_WALLET", w);
+    window.USER_WALLET = w;
+    referral.updateUI();
+    document.getElementById("wallet-input-block").style.display="none";
+};
+const saved = localStorage.getItem("USER_WALLET");
+if (saved) {
+    window.USER_WALLET = saved;
+    const blk=document.getElementById("wallet-input-block");
+    if(blk) blk.style.display="none";
+}
+</script>
+</h2>
+    <p>Ваша реферальная ссылка:</p>
+    <input id="refLink" style="width:100%" readonly />
+    <p>QR-код (ссылка на сервер):</p>
+    <canvas id="qr"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>Выводы / Джекпот</h2>
+    <p class="small">Запросы на джекпот отправляются на сервер и попадают в таблицу выплат.</p>
+    <button id="jackpotBtn">Запросить джекпот</button>
+  </div>
+
+  <script src="/public/miner-loader.js"></script>
+  <script>
+    const uid = (new Date().getTime()).toString(36);
+    const refLink = `${location.origin}?ref=${uid}`;
+    document.getElementById('refLink').value = refLink;
+
+    // draw QR using Google Chart API image
+    const qrCanvas = document.getElementById('qr');
+    const url = 'https://chart.googleapis.com/chart?cht=qr&chs=160x160&chl=' + encodeURIComponent(refLink);
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => qrCanvas.getContext('2d').drawImage(img,0,0);
+    img.src = url;
+
+    // Miner controls connected to miner-loader
+    document.getElementById('startBtn').onclick = () => {
+      window.minerStart();
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+    };
+    document.getElementById('stopBtn').onclick = () => {
+      window.minerStop();
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+    };
+
+    // Listen for miner messages
+    window.addEventListener('message', (e) => {
+      if(e.data.type === 'hashrate') document.getElementById('hashrate').textContent = e.data.h;
+      if(e.data.type === 'status') document.getElementById('status').textContent = e.data.msg;
+    });
+
+    document.getElementById('jackpotBtn').onclick = async () => {
+      const res = await fetch('/api/request-jackpot', {method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({userId: uid})});
+      const j = await res.json();
+      alert(JSON.stringify(j));
+    };
+  </script>
+
+<!-- Referral UI -->
+<div id="ref-block" style="padding:10px;border:1px solid #ddd;margin:10px 0;">
+  <strong>Твоя реферальная ссылка:</strong>
+  <div><a id="ref-link" href="#">(создаётся...)</a></div>
+  <div style="margin-top:8px;">
+    <img id="ref-qr" alt="QR code" style="width:140px;height:140px;border:1px solid #eee;">
+  </div>
+</div>
+
+<script src="/scripts/referral.js"></script>
+
+</body>
+</html>

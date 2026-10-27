@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WebVM JS-DOS (mobile-friendly)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin:0; padding:12px; background:#071025; color:#fff; }
+    .screen { width:100%; max-width:900px; height:360px; background:#000; border-radius:8px; margin:12px auto; display:flex; align-items:center; justify-content:center; color:#888; }
+    .controls { max-width:900px; margin:0 auto; display:flex; gap:8px; flex-wrap:wrap; }
+    button, a { background:#06b6d4; color:#002; padding:10px 14px; border-radius:8px; border:none; font-weight:600; text-decoration:none; display:inline-block; }
+    .note { max-width:900px; margin:12px auto; background:#071026; padding:10px; border-radius:8px; color:#9fb8c9; }
+  </style>
+  <script src="https://js-dos.com/7.4.0/jsdos.min.js"></script>
+</head>
+<body>
+  <h2>WebVM — JS-DOS версия (рекомендуется для мобильных)</h2>
+  <div id="screen" class="screen">Нажми «Запустить JS-DOS»</div>
+  <div class="controls">
+    <button id="start">Запустить JS-DOS</button>
+    <button id="sendFileBtn">Send File (загрузить EXE в DOS)</button>
+    <a href="#" id="openOnPC">Открыть на ПК (рекомендуется)</a>
+  </div>
+  <div class="note">
+    В этом пакете <strong>open-watcom-c-dos-1.9.exe</strong> не включён — добавь его сам через кнопку "Send File" или помести в ту же папку и используй функцию загрузки. После запуска DOS используй команду <code>dir</code> и запусти установщик (например, <code>OPEN-W~1.EXE</code>).
+  </div>
+
+<script>
+let dosbox = null;
+const screen = document.getElementById('screen');
+document.getElementById('start').addEventListener('click', async () => {
+  screen.textContent = 'Загрузка FreeDOS...';
+  try {
+    // create dosbox with js-dos
+    const emu = await Dos(document.getElementById('screen'), {
+      wdosboxUrl: "https://js-dos.com/7.4.0/wdosbox-misc.js",
+      autostart: true,
+      cycles: 3000
+    });
+    dosbox = emu;
+    screen.textContent = '';
+    // load freedos image from CDN (js-dos hosts sample freedos)
+    await emu.run('https://js-dos.com/cdn/freedos-1.2.0.img');
+    // show hint
+    const hint = document.createElement('div');
+    hint.style.color = '#bfefff';
+    hint.style.marginTop = '8px';
+    hint.textContent = 'Готово. Используйте кнопку "Send File" чтобы загрузить open-watcom exe.';
+    screen.parentNode.appendChild(hint);
+  } catch(err) {
+    console.error(err);
+    screen.textContent = 'Ошибка запуска JS-DOS: ' + err;
+  }
+});
+
+document.getElementById('sendFileBtn').addEventListener('click', async () => {
+  if (!dosbox) {
+    alert('Сначала запустите JS-DOS');
+    return;
+  }
+  // create file input
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.exe,.zip,.img';
+  inp.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    try {
+      await dosbox.sendFile(arrayBuffer, file.name);
+      alert('Файл загружен в виртуальную DOS: ' + file.name);
+    } catch(err) {
+      alert('Ошибка загрузки файла: ' + err);
+    }
+  };
+  inp.click();
+});
+
+document.getElementById('openOnPC').addEventListener('click', (e) => {
+  e.preventDefault();
+  alert('Скопируй этот проект на ПК и открой index.html в Chrome/Edge/Firefox для полной совместимости.');
+});
+</script>
+</body>
+</html>

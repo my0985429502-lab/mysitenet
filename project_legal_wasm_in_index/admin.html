@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"/><title>Admin Panel</title></head>
+<body>
+  <h1>Admin Panel</h1>
+  <form id="settings">
+    <label>Admin percentage (take): <input name="adminPct" value="10" />%</label><br/>
+    <label>Referral percentage: <input name="refPct" value="5" />%</label><br/>
+    <button>Save</button>
+  </form>
+
+  <h2>Payouts (ledger)</h2>
+  <button id="refresh">Refresh</button>
+  <pre id="ledger"></pre>
+  <button id="process">Process Payouts (mock)</button>
+
+  <script>
+    document.getElementById('settings').onsubmit = async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const body = { adminPct: form.get('adminPct'), refPct: form.get('refPct') };
+      const res = await fetch('/api/admin/settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+      alert(await res.text());
+    };
+    document.getElementById('refresh').onclick = async () => {
+      const r = await fetch('/api/admin/ledger'); document.getElementById('ledger').textContent = JSON.stringify(await r.json(), null, 2);
+    };
+    document.getElementById('process').onclick = async () => {
+      const r = await fetch('/api/admin/process-payouts', {method:'POST'}); alert(JSON.stringify(await r.json()));
+    };
+  </script>
+
+<div style="border:1px solid #ccc;padding:10px;margin:10px 0;">
+  <h3>Админ TRON кошелёк</h3>
+  <input id="admin-wallet" type="text" placeholder="TX..." style="width:100%;padding:8px;">
+  <button id="save-admin-wallet" style="margin-top:8px;">Сохранить</button>
+</div>
+
+<script>
+fetch('/admin/getWallet')
+  .then(r => r.json())
+  .then(d => { document.getElementById('admin-wallet').value = d.wallet || ""; });
+
+document.getElementById('save-admin-wallet').onclick = () => {
+    const w = document.getElementById('admin-wallet').value.trim();
+    fetch('/admin/setWallet', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ wallet: w })
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        if (d.ok) alert("Кошелёк сохранён!");
+        else alert("Ошибка: " + d.error);
+    });
+};
+</script>
+
+</body>
+</html>

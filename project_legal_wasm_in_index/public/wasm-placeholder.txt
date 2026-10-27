@@ -1,0 +1,1 @@
+Place your miner.wasm here. The worker will attempt to load /public/miner.wasm when launched in 'wasm' mode.
