@@ -58,7 +58,7 @@ textarea:focus{border-color:var(--accent)}
   <h3 style="font-size:15px;margin:18px 0 5px">Історія промптів</h3>
   <div class="history" id="history"></div>
   <h3 style="font-size:15px;margin:18px 0 5px">Власна база об'єктів</h3>
-  <p class="info">Додавай слова, за якими рушій має знаходити об'єкт у промпті. База зберігається у цьому браузері.</p>
+  <p class="info">Додавай слова, за якими рушій має знаходити об'єкт у промпті. База зберігається в IndexedDB цього браузера; кількість об’єктів програмно не обмежена. Фактичний обсяг залежить від вільного місця та квоти браузера.</p>
   <div class="db-form">
     <input id="objName" placeholder="Назва об'єкта">
     <input id="objWords" placeholder="Ключові слова через кому">
@@ -94,10 +94,14 @@ const defaultObjects=[
  {name:'Квітка',words:['квітка','цветок','цветы','flower'],type:'flower',color:'#f4a6c8',builtin:true},
  {name:'Атом',words:['атом','молекула','молекул'],type:'atom',color:'#9fe5ff',builtin:true}
 ];
-let objectDB=loadDB();
-function loadDB(){try{const saved=JSON.parse(localStorage.getItem(DB_KEY));return Array.isArray(saved)?saved:defaultObjects.map(o=>({...o}))}catch(e){return defaultObjects.map(o=>({...o}))}}
-function saveDB(){localStorage.setItem(DB_KEY,JSON.stringify(objectDB));renderDBList()}
-function renderDBList(){const box=$('objectList');if(!box)return;box.innerHTML='';objectDB.forEach((o,i)=>{const chip=document.createElement('span');chip.className='db-chip';chip.textContent=o.name+' · '+o.type+(o.builtin?'':' ×');if(!o.builtin){chip.title='Натисни, щоб видалити';chip.style.cursor='pointer';chip.onclick=()=>{objectDB.splice(i,1);saveDB();if(lastPrompt)render(lastPrompt)}}box.appendChild(chip)})}
+let objectDB=defaultObjects.map(o=>({...o}));
+// IndexedDB: без штучного обмеження кількості записів; фактичний обсяг залежить від вільного місця та квоти браузера.
+const IDB_NAME='LocalDrawObjectStore',IDB_STORE='objects';
+function openObjectDB(){return new Promise((resolve,reject)=>{if(!('indexedDB' in window)){reject(new Error('IndexedDB недоступна'));return;}const req=indexedDB.open(IDB_NAME,1);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(IDB_STORE))db.createObjectStore(IDB_STORE,{keyPath:'name'});};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('Не вдалося відкрити базу'));});}
+async function initDB(){try{const db=await openObjectDB();const rows=await new Promise((resolve,reject)=>{const tx=db.transaction(IDB_STORE,'readonly');const req=tx.objectStore(IDB_STORE).getAll();req.onsuccess=()=>resolve(req.result||[]);req.onerror=()=>reject(req.error);});db.close();if(rows.length){objectDB=rows;}else{let legacy=[];try{legacy=JSON.parse(localStorage.getItem(DB_KEY)||'[]')}catch(e){}if(Array.isArray(legacy)&&legacy.length)objectDB=legacy;await persistDB();}renderDBList();if(lastPrompt)render(lastPrompt);}catch(err){addMessage('Не вдалося відкрити локальну базу браузера: '+err.message,'bot');renderDBList();}}
+async function persistDB(){const db=await openObjectDB();await new Promise((resolve,reject)=>{const tx=db.transaction(IDB_STORE,'readwrite');const store=tx.objectStore(IDB_STORE);store.clear();objectDB.forEach(o=>store.put(o));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error('Помилка запису'));tx.onabort=()=>reject(tx.error||new Error('Запис перервано'));});db.close();renderDBList();}
+function saveDB(){persistDB().catch(err=>addMessage('Не вдалося зберегти базу: '+err.message+'. Перевір вільне місце у браузері.','bot'));}
+function renderDBList(){const box=$('objectList');if(!box)return;box.innerHTML='';const count=document.createElement('div');count.className='info';count.textContent='Об’єктів у базі: '+objectDB.length+' · без програмного ліміту';box.appendChild(count);objectDB.forEach((o,i)=>{const chip=document.createElement('span');chip.className='db-chip';chip.textContent=o.name+' · '+o.type+(o.builtin?'':' ×');if(!o.builtin){chip.title='Натисни, щоб видалити';chip.style.cursor='pointer';chip.onclick=()=>{objectDB.splice(i,1);saveDB();if(lastPrompt)render(lastPrompt)}}box.appendChild(chip)})}
 
 function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 function rng(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
@@ -202,14 +206,15 @@ $('addObject').onclick=()=>{
  const name=$('objName').value.trim(),words=$('objWords').value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean),type=$('objType').value,color=$('objColor').value;
  const scale=clamp(Number($('objScale').value),.1,3),x=clamp(Number($('objX').value),0,960),y=clamp(Number($('objY').value),0,720),rotation=clamp(Number($('objRotation').value),-180,180),opacity=clamp(Number($('objOpacity').value),0,100);
  if(!name||!words.length){addMessage('Вкажи назву об’єкта та хоча б одне ключове слово.','bot');return}
- if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі.','bot');return}
- objectDB.push({name,words,type,color,scale,x,y,rotation,opacity,imageData:newObjectImageData||'',builtin:false});objectImageCache={};try{saveDB()}catch(err){objectDB.pop();addMessage('Не вдалося зберегти: оригінал зображення завеликий для сховища браузера. Спробуй менший файл або експортуй базу JSON.','bot');return}$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
+ if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі. Вибери іншу назву.','bot');return}
+ objectDB.push({name,words,type,color,scale,x,y,rotation,opacity,imageData:newObjectImageData||'',builtin:false});objectImageCache={};persistDB().then(()=>{addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Кількість об’єктів не обмежена програмою.','bot');if(lastPrompt)render(lastPrompt);}).catch(err=>{objectDB.pop();addMessage('Не вдалося зберегти в базі браузера: '+err.message+'. Місце у браузері все одно має фізичну квоту.','bot');renderDBList();});$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';
 };
 $('exportDB').onclick=()=>{const blob=new Blob([JSON.stringify(objectDB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='local-draw-objects.json';a.click();URL.revokeObjectURL(a.href)};
 $('importDB').onclick=()=>$('importFile').click();
-$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data)||!data.every(o=>o.name&&Array.isArray(o.words)&&o.type))throw new Error('bad');objectDB=data;objectImageCache={};saveDB();addMessage('Базу об’єктів імпортовано.','bot');if(lastPrompt)render(lastPrompt)}catch(err){addMessage('Не вдалося імпортувати JSON-базу.','bot')}e.target.value=''};
+$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data)||!data.every(o=>o.name&&Array.isArray(o.words)&&o.type))throw new Error('bad');objectDB=data;objectImageCache={};await persistDB();addMessage('Базу об’єктів імпортовано.','bot');if(lastPrompt)render(lastPrompt)}catch(err){addMessage('Не вдалося імпортувати JSON-базу.','bot')}e.target.value=''};
 renderDBList();
 render('фантастичний пейзаж з горами та будинком');
+initDB();
 })();
 </script>
 </body>
