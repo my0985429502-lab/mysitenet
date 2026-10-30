@@ -126,7 +126,7 @@ function drawDatabaseImage(o,x,y,k=1){
  if(!o.imageData)return false;
  let img=objectImageCache[o.name];
  if(!img){img=new Image();objectImageCache[o.name]=img;img.onload=()=>{if(lastPrompt)render(lastPrompt)};img.src=o.imageData;return true;}
- if(img.complete&&img.naturalWidth){const w=360*k,h=360*k,scale=Math.min(w/img.naturalWidth,h/img.naturalHeight);ctx.drawImage(img,x-w*scale/2,y-h*scale/2,w*scale,h*scale);return true;}
+ if(img.complete&&img.naturalWidth){const scale=Math.min(960/img.naturalWidth,720/img.naturalHeight),w=img.naturalWidth*scale,h=img.naturalHeight*scale;ctx.drawImage(img,(960-w)/2,(720-h)/2,w,h);return true;}
  return true;
 }
 function drawReferenceImage(){
@@ -187,18 +187,16 @@ $('objImageFile').onchange=async e=>{
  try{
    const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
    const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=dataUrl});
-   const max=640,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
-   const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));
-   c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-   newObjectImageData=c.toDataURL('image/jpeg',0.82);
-   $('objImagePreview').innerHTML='';const thumb=document.createElement('img');thumb.src=newObjectImageData;thumb.alt='Попередній перегляд об’єкта';const label=document.createElement('span');label.textContent='Вибрано: '+file.name+' (зменшена копія для локальної бази)';$('objImagePreview').append(thumb,label);
+   // Store the original image without resizing or recompressing it.
+   newObjectImageData=dataUrl;
+   $('objImagePreview').innerHTML='';const thumb=document.createElement('img');thumb.src=newObjectImageData;thumb.alt='Попередній перегляд об’єкта';const label=document.createElement('span');label.textContent='Вибрано: '+file.name+' ('+img.naturalWidth+' × '+img.naturalHeight+' px, оригінал без зменшення)';$('objImagePreview').append(thumb,label);
  }catch(err){newObjectImageData='';addMessage('Не вдалося завантажити картинку об’єкта.','bot')}
 };
 $('addObject').onclick=()=>{
  const name=$('objName').value.trim(),words=$('objWords').value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean),type=$('objType').value,color=$('objColor').value;
  if(!name||!words.length){addMessage('Вкажи назву об’єкта та хоча б одне ключове слово.','bot');return}
  if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі.','bot');return}
- objectDB.push({name,words,type,color,imageData:newObjectImageData||'',builtin:false});objectImageCache={};saveDB();$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
+ objectDB.push({name,words,type,color,imageData:newObjectImageData||'',builtin:false});objectImageCache={};try{saveDB()}catch(err){objectDB.pop();addMessage('Не вдалося зберегти: оригінал зображення завеликий для сховища браузера. Спробуй менший файл або експортуй базу JSON.','bot');return}$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
 };
 $('exportDB').onclick=()=>{const blob=new Blob([JSON.stringify(objectDB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='local-draw-objects.json';a.click();URL.revokeObjectURL(a.href)};
 $('importDB').onclick=()=>$('importFile').click();
