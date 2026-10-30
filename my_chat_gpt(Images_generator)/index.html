@@ -26,7 +26,7 @@ textarea:focus{border-color:var(--accent)}
 .history{display:flex;flex-direction:column;gap:7px;margin-top:10px}
 .history button{text-align:left;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .info{font-size:13px;line-height:1.5;color:var(--muted)}
-.upload-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.upload-row input{display:none}.upload-name{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
+.upload-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.upload-row input{display:none}.upload-name{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-form .wide{grid-column:1/-1}.db-image-preview{display:flex;align-items:center;gap:10px;grid-column:1/-1;font-size:12px;color:var(--muted)}.db-image-preview img{width:64px;height:64px;object-fit:contain;background:#0b1018;border:1px solid var(--line);border-radius:8px}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
 @media(max-width:760px){.app{grid-template-columns:1fr;padding:10px}header{align-items:flex-start;flex-direction:column}.chat{height:220px}}
 </style>
 </head>
@@ -64,6 +64,9 @@ textarea:focus{border-color:var(--accent)}
     <input id="objWords" placeholder="Ключові слова через кому">
     <select id="objType"><option value="circle">Коло</option><option value="square">Квадрат</option><option value="triangle">Трикутник</option><option value="star">Зірка</option><option value="house">Будинок</option><option value="tree">Дерево</option><option value="flower">Квітка</option><option value="robot">Робот</option></select>
     <input id="objColor" type="color" value="#70c6ff" title="Колір об'єкта" aria-label="Колір об'єкта">
+    <label class="info wide" for="objImageFile">Зображення об'єкта для словаря (PNG, JPG, WEBP):</label>
+    <input class="wide" id="objImageFile" type="file" accept="image/png,image/jpeg,image/webp" style="display:block">
+    <div class="db-image-preview" id="objImagePreview"><span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span></div>
     <button id="addObject">＋ Додати об'єкт у базу</button>
   </div>
   <div class="db-list" id="objectList"></div>
@@ -75,7 +78,7 @@ textarea:focus{border-color:var(--accent)}
 (() => {
 const canvas=document.getElementById('art'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
-let lastPrompt='',seed=1,history=[],referenceImage=null,referenceImageName='';
+let lastPrompt='',seed=1,history=[],referenceImage=null,referenceImageName='',newObjectImageData='',objectImageCache={};
 const DB_KEY='localDrawObjectDatabaseV1';
 const defaultObjects=[
  {name:'Собака',words:['собака','пес','dog','щенок'],type:'dog',color:'#bd916d',builtin:true},
@@ -119,6 +122,13 @@ function customShape(type,x,y,color,k=1){
  if(type==='triangle'){path([[x,y-100*k],[x-48*k,y-10*k],[x+48*k,y-10*k]],color,'#ffffffaa',4*k);return}
  if(type==='star'){ctx.beginPath();for(let i=0;i<10;i++){let a=-Math.PI/2+i*Math.PI/5,r=(i%2?20:46)*k;let px=x+Math.cos(a)*r,py=y-50*k+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3*k;ctx.stroke()}
 }
+function drawDatabaseImage(o,x,y,k=1){
+ if(!o.imageData)return false;
+ let img=objectImageCache[o.name];
+ if(!img){img=new Image();objectImageCache[o.name]=img;img.onload=()=>{if(lastPrompt)render(lastPrompt)};img.src=o.imageData;return true;}
+ if(img.complete&&img.naturalWidth){const w=150*k,h=150*k,scale=Math.min(w/img.naturalWidth,h/img.naturalHeight);ctx.drawImage(img,x-w*scale/2,y-h*scale/2,w*scale,h*scale);return true;}
+ return true;
+}
 function drawReferenceImage(){
  if(!referenceImage)return;
  const iw=referenceImage.naturalWidth,ih=referenceImage.naturalHeight;
@@ -144,7 +154,7 @@ function render(prompt){
  objectDB.filter(o=>!o.builtin).forEach((o,i)=>{
    if((o.words||[]).some(w=>w && s.includes(w.toLowerCase()))){
      const positions=[[150,600],[350,600],[500,600],[800,600],[280,440],[700,430]];
-     const pos=positions[i%positions.length];customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
+     const pos=positions[i%positions.length];if(o.imageData)drawDatabaseImage(o,pos[0],pos[1]-45,.9);else customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
    }
  });
  // A few stars / decorative particles determined by prompt
@@ -171,15 +181,28 @@ $('example').onclick=()=>{$('prompt').value='Фантастичне живе м�
 $('save').onclick=()=>{let a=document.createElement('a');a.download='local-draw.png';a.href=canvas.toDataURL('image/png');a.click()};
 $('redraw').onclick=()=>{if(lastPrompt)render(lastPrompt);else addMessage('Спочатку введи промпт.','bot')};
 $('clear').onclick=()=>{ctx.clearRect(0,0,960,720);$('sceneInfo').textContent='Полотно очищено.';lastPrompt=''};
+$('objImageFile').onchange=async e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ if(!file.type.startsWith('image/')){addMessage('Вибери файл зображення.','bot');e.target.value='';return;}
+ try{
+   const dataUrl=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
+   const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=dataUrl});
+   const max=640,scale=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));
+   const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.naturalWidth*scale));c.height=Math.max(1,Math.round(img.naturalHeight*scale));
+   c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+   newObjectImageData=c.toDataURL('image/jpeg',0.82);
+   $('objImagePreview').innerHTML='';const thumb=document.createElement('img');thumb.src=newObjectImageData;thumb.alt='Попередній перегляд об’єкта';const label=document.createElement('span');label.textContent='Вибрано: '+file.name+' (зменшена копія для локальної бази)';$('objImagePreview').append(thumb,label);
+ }catch(err){newObjectImageData='';addMessage('Не вдалося завантажити картинку об’єкта.','bot')}
+};
 $('addObject').onclick=()=>{
  const name=$('objName').value.trim(),words=$('objWords').value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean),type=$('objType').value,color=$('objColor').value;
  if(!name||!words.length){addMessage('Вкажи назву об’єкта та хоча б одне ключове слово.','bot');return}
  if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі.','bot');return}
- objectDB.push({name,words,type,color,builtin:false});saveDB();$('objName').value='';$('objWords').value='';addMessage('Додано в базу: '+name+'. Тепер використай одне з ключових слів у промпті.','bot');if(lastPrompt)render(lastPrompt);
+ objectDB.push({name,words,type,color,imageData:newObjectImageData||'',builtin:false});objectImageCache={};saveDB();$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
 };
 $('exportDB').onclick=()=>{const blob=new Blob([JSON.stringify(objectDB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='local-draw-objects.json';a.click();URL.revokeObjectURL(a.href)};
 $('importDB').onclick=()=>$('importFile').click();
-$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data)||!data.every(o=>o.name&&Array.isArray(o.words)&&o.type))throw new Error('bad');objectDB=data;saveDB();addMessage('Базу об’єктів імпортовано.','bot');if(lastPrompt)render(lastPrompt)}catch(err){addMessage('Не вдалося імпортувати JSON-базу.','bot')}e.target.value=''};
+$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data)||!data.every(o=>o.name&&Array.isArray(o.words)&&o.type))throw new Error('bad');objectDB=data;objectImageCache={};saveDB();addMessage('Базу об’єктів імпортовано.','bot');if(lastPrompt)render(lastPrompt)}catch(err){addMessage('Не вдалося імпортувати JSON-базу.','bot')}e.target.value=''};
 renderDBList();
 render('фантастичний пейзаж з горами та будинком');
 })();
