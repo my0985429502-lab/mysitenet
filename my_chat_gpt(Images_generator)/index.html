@@ -26,7 +26,7 @@ textarea:focus{border-color:var(--accent)}
 .history{display:flex;flex-direction:column;gap:7px;margin-top:10px}
 .history button{text-align:left;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .info{font-size:13px;line-height:1.5;color:var(--muted)}
-.upload-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.upload-row input{display:none}.upload-name{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-form .wide{grid-column:1/-1}.db-image-preview{display:flex;align-items:center;gap:10px;grid-column:1/-1;font-size:12px;color:var(--muted)}.db-image-preview img{width:64px;height:64px;object-fit:contain;background:#0b1018;border:1px solid var(--line);border-radius:8px}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
+.upload-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.upload-row input{display:none}.upload-name{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-form label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px}.db-form label input{width:100%}.db-form .wide{grid-column:1/-1}.db-image-preview{display:flex;align-items:center;gap:10px;grid-column:1/-1;font-size:12px;color:var(--muted)}.db-image-preview img{width:64px;height:64px;object-fit:contain;background:#0b1018;border:1px solid var(--line);border-radius:8px}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
 @media(max-width:760px){.app{grid-template-columns:1fr;padding:10px}header{align-items:flex-start;flex-direction:column}.chat{height:220px}}
 </style>
 </head>
@@ -64,6 +64,11 @@ textarea:focus{border-color:var(--accent)}
     <input id="objWords" placeholder="Ключові слова через кому">
     <select id="objType"><option value="circle">Коло</option><option value="square">Квадрат</option><option value="triangle">Трикутник</option><option value="star">Зірка</option><option value="house">Будинок</option><option value="tree">Дерево</option><option value="flower">Квітка</option><option value="robot">Робот</option></select>
     <input id="objColor" type="color" value="#70c6ff" title="Колір об'єкта" aria-label="Колір об'єкта">
+    <label>Масштаб (0,1–3)<input id="objScale" type="number" min="0.1" max="3" step="0.1" value="1"></label>
+    <label>Позиція X (0–960)<input id="objX" type="number" min="0" max="960" step="10" value="480"></label>
+    <label>Позиція Y (0–720)<input id="objY" type="number" min="0" max="720" step="10" value="360"></label>
+    <label>Поворот (°)<input id="objRotation" type="number" min="-180" max="180" step="5" value="0"></label>
+    <label>Прозорість (%)<input id="objOpacity" type="number" min="0" max="100" step="5" value="100"></label>
     <label class="info wide" for="objImageFile">Зображення об'єкта для словаря (PNG, JPG, WEBP):</label>
     <input class="wide" id="objImageFile" type="file" accept="image/png,image/jpeg,image/webp" style="display:block">
     <div class="db-image-preview" id="objImagePreview"><span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span></div>
@@ -122,11 +127,13 @@ function customShape(type,x,y,color,k=1){
  if(type==='triangle'){path([[x,y-100*k],[x-48*k,y-10*k],[x+48*k,y-10*k]],color,'#ffffffaa',4*k);return}
  if(type==='star'){ctx.beginPath();for(let i=0;i<10;i++){let a=-Math.PI/2+i*Math.PI/5,r=(i%2?20:46)*k;let px=x+Math.cos(a)*r,py=y-50*k+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3*k;ctx.stroke()}
 }
-function drawDatabaseImage(o,x,y,k=1){
+function objectParams(o){return {x:clamp(Number(o.x??480),0,960),y:clamp(Number(o.y??360),0,720),scale:clamp(Number(o.scale??1),.1,3),rotation:clamp(Number(o.rotation??0),-180,180),opacity:clamp(Number(o.opacity??100),0,100)/100}}
+function clamp(v,min,max){return Number.isFinite(v)?Math.min(max,Math.max(min,v)):min}
+function drawDatabaseImage(o,x,y){
  if(!o.imageData)return false;
  let img=objectImageCache[o.name];
  if(!img){img=new Image();objectImageCache[o.name]=img;img.onload=()=>{if(lastPrompt)render(lastPrompt)};img.src=o.imageData;return true;}
- if(img.complete&&img.naturalWidth){const scale=Math.min(960/img.naturalWidth,720/img.naturalHeight),w=img.naturalWidth*scale,h=img.naturalHeight*scale;ctx.drawImage(img,(960-w)/2,(720-h)/2,w,h);return true;}
+ if(img.complete&&img.naturalWidth){const q=objectParams(o),fit=Math.min(960/img.naturalWidth,720/img.naturalHeight),w=img.naturalWidth*fit*q.scale,h=img.naturalHeight*fit*q.scale;ctx.save();ctx.globalAlpha=q.opacity;ctx.translate(q.x,q.y);ctx.rotate(q.rotation*Math.PI/180);ctx.drawImage(img,-w/2,-h/2,w,h);ctx.restore();return true;}
  return true;
 }
 function drawReferenceImage(){
@@ -153,8 +160,7 @@ function render(prompt){
  // Custom objects from the user's local object database
  objectDB.filter(o=>!o.builtin).forEach((o,i)=>{
    if((o.words||[]).some(w=>w && s.includes(w.toLowerCase()))){
-     const positions=[[150,600],[350,600],[500,600],[800,600],[280,440],[700,430]];
-     const pos=positions[i%positions.length];if(o.imageData)drawDatabaseImage(o,pos[0],pos[1]-45,1.0);else customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
+     const q=objectParams(o);ctx.save();ctx.globalAlpha=q.opacity;ctx.translate(q.x,q.y);ctx.rotate(q.rotation*Math.PI/180);if(o.imageData){ctx.restore();drawDatabaseImage(o,q.x,q.y)}else{customShape(o.type,0,0,o.color||'#70c6ff',q.scale);ctx.restore();}
    }
  });
  // A few stars / decorative particles determined by prompt
@@ -194,9 +200,10 @@ $('objImageFile').onchange=async e=>{
 };
 $('addObject').onclick=()=>{
  const name=$('objName').value.trim(),words=$('objWords').value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean),type=$('objType').value,color=$('objColor').value;
+ const scale=clamp(Number($('objScale').value),.1,3),x=clamp(Number($('objX').value),0,960),y=clamp(Number($('objY').value),0,720),rotation=clamp(Number($('objRotation').value),-180,180),opacity=clamp(Number($('objOpacity').value),0,100);
  if(!name||!words.length){addMessage('Вкажи назву об’єкта та хоча б одне ключове слово.','bot');return}
  if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі.','bot');return}
- objectDB.push({name,words,type,color,imageData:newObjectImageData||'',builtin:false});objectImageCache={};try{saveDB()}catch(err){objectDB.pop();addMessage('Не вдалося зберегти: оригінал зображення завеликий для сховища браузера. Спробуй менший файл або експортуй базу JSON.','bot');return}$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
+ objectDB.push({name,words,type,color,scale,x,y,rotation,opacity,imageData:newObjectImageData||'',builtin:false});objectImageCache={};try{saveDB()}catch(err){objectDB.pop();addMessage('Не вдалося зберегти: оригінал зображення завеликий для сховища браузера. Спробуй менший файл або експортуй базу JSON.','bot');return}$('objName').value='';$('objWords').value='';$('objImageFile').value='';newObjectImageData='';$('objImagePreview').innerHTML='<span>Зображення ще не вибрано. Можна додати фігуру без картинки.</span>';addMessage('Додано в базу: '+name+(objectDB[objectDB.length-1].imageData?' із власним зображенням':'')+'. Використай ключове слово в промпті.','bot');if(lastPrompt)render(lastPrompt);
 };
 $('exportDB').onclick=()=>{const blob=new Blob([JSON.stringify(objectDB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='local-draw-objects.json';a.click();URL.revokeObjectURL(a.href)};
 $('importDB').onclick=()=>$('importFile').click();
