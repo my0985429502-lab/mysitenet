@@ -26,7 +26,7 @@ textarea:focus{border-color:var(--accent)}
 .history{display:flex;flex-direction:column;gap:7px;margin-top:10px}
 .history button{text-align:left;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .info{font-size:13px;line-height:1.5;color:var(--muted)}
-.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
+.upload-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.upload-row input{display:none}.upload-name{font-size:12px;color:var(--muted);overflow-wrap:anywhere}.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
 @media(max-width:760px){.app{grid-template-columns:1fr;padding:10px}header{align-items:flex-start;flex-direction:column}.chat{height:220px}}
 </style>
 </head>
@@ -48,6 +48,12 @@ textarea:focus{border-color:var(--accent)}
     <div class="msg bot">Привіт! Опиши, що намалювати. Наприклад: «фантастичне живе місто з крилами, гори, сонце і річка».</div>
   </div>
   <textarea id="prompt" placeholder="Напиши промпт українською або російською..."></textarea>
+  <div class="upload-row">
+    <button class="secondary" id="uploadImageBtn" type="button">＋ Завантажити картинку</button>
+    <input id="referenceImageFile" type="file" accept="image/*">
+    <button class="secondary" id="removeImageBtn" type="button" hidden>Прибрати картинку</button>
+    <span class="upload-name" id="imageStatus">Картинка — візуальна основа для малювання</span>
+  </div>
   <div class="toolbar"><button id="draw" style="flex:1">✦ Намалювати</button><button class="secondary" id="example">Приклад</button></div>
   <h3 style="font-size:15px;margin:18px 0 5px">Історія промптів</h3>
   <div class="history" id="history"></div>
@@ -69,7 +75,7 @@ textarea:focus{border-color:var(--accent)}
 (() => {
 const canvas=document.getElementById('art'),ctx=canvas.getContext('2d');
 const $=id=>document.getElementById(id);
-let lastPrompt='',seed=1,history=[];
+let lastPrompt='',seed=1,history=[],referenceImage=null,referenceImageName='';
 const DB_KEY='localDrawObjectDatabaseV1';
 const defaultObjects=[
  {name:'Собака',words:['собака','пес','dog','щенок'],type:'dog',color:'#bd916d',builtin:true},
@@ -113,11 +119,19 @@ function customShape(type,x,y,color,k=1){
  if(type==='triangle'){path([[x,y-100*k],[x-48*k,y-10*k],[x+48*k,y-10*k]],color,'#ffffffaa',4*k);return}
  if(type==='star'){ctx.beginPath();for(let i=0;i<10;i++){let a=-Math.PI/2+i*Math.PI/5,r=(i%2?20:46)*k;let px=x+Math.cos(a)*r,py=y-50*k+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3*k;ctx.stroke()}
 }
+function drawReferenceImage(){
+ if(!referenceImage)return;
+ const iw=referenceImage.naturalWidth,ih=referenceImage.naturalHeight;
+ const scale=Math.max(960/iw,720/ih),w=iw*scale,h=ih*scale;
+ ctx.drawImage(referenceImage,(960-w)/2,(720-h)/2,w,h);
+ }
 function render(prompt){
- lastPrompt=prompt;seed=hash(prompt)||1;const s=prompt.toLowerCase();background();mountains();
- if(has(s,['вода','річк','река','море','океан','озеро']))water();
+ lastPrompt=prompt;seed=hash(prompt)||1;const s=prompt.toLowerCase();
+ if(referenceImage){drawReferenceImage();}
+ else {background();mountains();}
+ if(!referenceImage&&has(s,['вода','річк','река','море','океан','озеро']))water();
  // Ground and scene objects
- ctx.fillStyle='#263d3b';ctx.fillRect(0,490,960,230);
+ if(!referenceImage){ctx.fillStyle='#263d3b';ctx.fillRect(0,490,960,230);}
  if(has(s,['будин','дом','хата']))house(230,560,.95);
  if(has(s,['міст','город','город','здани','здание','будівл','живе','живой']))building(610,560,1.0,has(s,['крил','крыл']));
  if(has(s,['дерев','лес','ліс','tree'])){for(let i=0;i<5;i++)tree(70+i*175,560,.8+rng()*.4)}
@@ -137,11 +151,21 @@ function render(prompt){
  for(let i=0;i<24;i++){let x=rng()*960,y=400+rng()*260;ellipse(x,y,1.5+rng()*2,1.5+rng()*2,'#f6e7c2aa')}
  if(!has(s,['будин','дом','хата','міст','город','здани','здание','будівл','живе','живой','собак','пес','dog','робот','robot','дерев','лес','ліс','квіт','цвет','flower','атом','молекул','крил','крыл'])){house(480,560,1);text('ТВІЙ СВІТ',370,660,28)}
  text('LOCAL DRAW',28,52,18,'#ffffffbb');
- $('sceneInfo').textContent=`Промпт: ${prompt} • seed: ${hash(prompt)} • Об’єкти створені локальним рушієм`;
+ $('sceneInfo').textContent=`Промпт: ${prompt} • seed: ${hash(prompt)} • ${referenceImage?'Завантажене зображення використано як основу; об’єкти додані поверх нього.':'Об’єкти створені локальним рушієм'}`;
 }
 function addMessage(message,who){const el=document.createElement('div');el.className='msg '+who;el.textContent=message;$('chat').appendChild(el);$('chat').scrollTop=$('chat').scrollHeight}
 function draw(){const p=$('prompt').value.trim();if(!p){addMessage('Спочатку введи опис зображення.','bot');return}addMessage(p,'user');render(p);addMessage('Готово. Я побудував сцену з розпізнаних об’єктів і геометричних форм.','bot');history.unshift(p);history=[...new Set(history)].slice(0,8);updateHistory()}
 function updateHistory(){$('history').innerHTML='';history.forEach(p=>{let b=document.createElement('button');b.className='secondary';b.textContent=p;b.onclick=()=>{$('prompt').value=p;render(p)};$('history').appendChild(b)})}
+$('uploadImageBtn').onclick=()=>$('referenceImageFile').click();
+$('referenceImageFile').onchange=e=>{
+ const file=e.target.files&&e.target.files[0];if(!file)return;
+ if(!file.type.startsWith('image/')){addMessage('Будь ласка, вибери файл зображення.','bot');e.target.value='';return;}
+ const reader=new FileReader();reader.onload=()=>{
+   const img=new Image();img.onload=()=>{referenceImage=img;referenceImageName=file.name;$('imageStatus').textContent='Завантажено: '+file.name;$('removeImageBtn').hidden=false;render(lastPrompt||'');addMessage('Картинку завантажено. Вона показується як основа, а об’єкти з промпту можна додавати поверх неї. Поточний рушій ще не розпізнає вміст картинки автоматично.','bot');};
+   img.onerror=()=>addMessage('Не вдалося відкрити це зображення.','bot');img.src=reader.result;
+ };reader.readAsDataURL(file);e.target.value='';
+};
+$('removeImageBtn').onclick=()=>{referenceImage=null;referenceImageName='';$('imageStatus').textContent='Картинка — візуальна основа для малювання';$('removeImageBtn').hidden=true;render(lastPrompt||'фантастичний пейзаж');};
 $('draw').onclick=draw;$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();draw()}});
 $('example').onclick=()=>{$('prompt').value='Фантастичне живе місто з великими крилами, гори, річка і зоряне небо'};
 $('save').onclick=()=>{let a=document.createElement('a');a.download='local-draw.png';a.href=canvas.toDataURL('image/png');a.click()};
