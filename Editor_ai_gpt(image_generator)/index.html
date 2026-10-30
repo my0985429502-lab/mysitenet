@@ -281,27 +281,6 @@ initDB();
 Текст: <input id="txt" style="width:40%" type="text"/>
 </div>
 </div>
-
-
- LAYERS PATCH: fixes delete/add layer and event binding 
-
-
-
-
-
-
-
-
-
-
-
-
-
- Robust dynamic layers initializer (appended by assistant) 
-
- End assistant script 
-
-</div>
 <script>
 const wrap=document.getElementById('canvasWrapper');
 const hand=document.getElementById('handTool');
@@ -3129,20 +3108,6 @@ document.addEventListener('DOMContentLoaded', function(){
   }
 });
 </script>
-<!-- AI ONNX BLOCK -->
-<hr/>
-<h2>AI ONNX Generator</h2>
-<div class="controls">
-  <label>Описание для ИИ:</label>
-  <input id="aiPrompt" style="width:100%;"><br><br>
-  <button onclick="loadONNX()">Load ONNX Models</button>
-  <button onclick="runGenerate()">Generate</button>
-  <p id="aiStatus">Models not loaded.</p>
-  <img id="aiImage" style="max-width:100%;display:none;">
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
-<script src="tiny-sd-onnx.js"></script>
 <script>
 let sessions=null;
 
