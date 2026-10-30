@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Администратор</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+body {
+    background: #171717;
+    color: white;
+    font-family: Arial;
+    padding: 20px;
+}
+
+input, button {
+    padding: 12px;
+    margin: 5px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+td, th {
+    padding: 10px;
+    border: 1px solid #555;
+    text-align: left;
+}
+
+th {
+    background: #333;
+}
+
+#error {
+    color: #ff5555;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Административная панель</h1>
+
+<div id="login">
+    <h3>Вход администратора</h3>
+
+    <input
+        id="email"
+        type="email"
+        placeholder="Электронная почта"
+    >
+
+    <br>
+
+    <input
+        id="password"
+        type="password"
+        placeholder="Пароль"
+    >
+
+    <br>
+
+    <button onclick="login()">Войти</button>
+
+    <p id="error"></p>
+</div>
+
+<div id="panel" style="display:none">
+
+    <h2>Общая база посетителей</h2>
+
+    <button onclick="loadVisitors()">Обновить</button>
+    <button onclick="logout()">Выйти</button>
+
+    <p id="total"></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>ID посетителя</th>
+                <th>Первое посещение</th>
+                <th>Последнее посещение</th>
+                <th>Посещений</th>
+            </tr>
+        </thead>
+
+        <tbody id="visitors"></tbody>
+    </table>
+
+</div>
+
+<script>
+const SUPABASE_URL = "ВСТАВЬ_PROJECT_URL";
+const SUPABASE_KEY = "ВСТАВЬ_PUBLISHABLE_KEY";
+
+const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+async function login() {
+
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    const { error } = await db.auth.signInWithPassword({
+        email,
+        password
+    });
+
+    if (error) {
+        document.getElementById("error").textContent =
+            error.message;
+        return;
+    }
+
+    await checkAdmin();
+}
+
+async function checkAdmin() {
+
+    const { data: { user } } = await db.auth.getUser();
+
+    if (!user) return;
+
+    // Проверка разрешений через RLS в базе
+    const { error } = await db
+        .from("site_visitors")
+        .select("visitor_id")
+        .limit(1);
+
+    if (error) {
+        document.getElementById("error").textContent =
+            "Нет доступа администратора";
+        await db.auth.signOut();
+        return;
+    }
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("panel").style.display = "block";
+
+    loadVisitors();
+}
+
+async function loadVisitors() {
+
+    const { data, error } = await db
+        .from("site_visitors")
+        .select("*")
+        .order("last_seen", { ascending: false });
+
+    if (error) {
+        alert("Ошибка базы: " + error.message);
+        return;
+    }
+
+    document.getElementById("total").textContent =
+        "Всего посетителей: " + data.length;
+
+    const tbody = document.getElementById("visitors");
+
+    tbody.innerHTML = "";
+
+    data.forEach(visitor => {
+
+        const row = document.createElement("tr");
+
+        const values = [
+            visitor.visitor_id,
+            new Date(visitor.first_seen).toLocaleString(),
+            new Date(visitor.last_seen).toLocaleString(),
+            visitor.visits
+        ];
+
+        values.forEach(value => {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            row.appendChild(cell);
+        });
+
+        tbody.appendChild(row);
+    });
+}
+
+async function logout() {
+
+    await db.auth.signOut();
+
+    document.getElementById("panel").style.display = "none";
+    document.getElementById("login").style.display = "block";
+}
+
+db.auth.getSession().then(({ data }) => {
+    if (data.session) {
+        checkAdmin();
+    }
+});
+</script>
+
+</body>
+</html>
