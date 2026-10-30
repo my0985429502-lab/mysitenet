@@ -126,7 +126,7 @@ function drawDatabaseImage(o,x,y,k=1){
  if(!o.imageData)return false;
  let img=objectImageCache[o.name];
  if(!img){img=new Image();objectImageCache[o.name]=img;img.onload=()=>{if(lastPrompt)render(lastPrompt)};img.src=o.imageData;return true;}
- if(img.complete&&img.naturalWidth){const w=150*k,h=150*k,scale=Math.min(w/img.naturalWidth,h/img.naturalHeight);ctx.drawImage(img,x-w*scale/2,y-h*scale/2,w*scale,h*scale);return true;}
+ if(img.complete&&img.naturalWidth){const w=360*k,h=360*k,scale=Math.min(w/img.naturalWidth,h/img.naturalHeight);ctx.drawImage(img,x-w*scale/2,y-h*scale/2,w*scale,h*scale);return true;}
  return true;
 }
 function drawReferenceImage(){
@@ -154,7 +154,7 @@ function render(prompt){
  objectDB.filter(o=>!o.builtin).forEach((o,i)=>{
    if((o.words||[]).some(w=>w && s.includes(w.toLowerCase()))){
      const positions=[[150,600],[350,600],[500,600],[800,600],[280,440],[700,430]];
-     const pos=positions[i%positions.length];if(o.imageData)drawDatabaseImage(o,pos[0],pos[1]-45,.9);else customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
+     const pos=positions[i%positions.length];if(o.imageData)drawDatabaseImage(o,pos[0],pos[1]-45,1.0);else customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
    }
  });
  // A few stars / decorative particles determined by prompt
