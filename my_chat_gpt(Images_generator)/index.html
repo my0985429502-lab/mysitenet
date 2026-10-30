@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local Draw Chat — власний рушій</title>
+<style>
+:root{color-scheme:dark;--bg:#10131b;--panel:#191f2b;--panel2:#222b39;--text:#edf2fa;--muted:#aab6c7;--accent:#7c9cff;--line:#303b4d}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(145deg,#10131b,#151d2a);color:var(--text);font:15px system-ui,Segoe UI,Arial;min-height:100vh}
+.app{max-width:1100px;margin:auto;padding:18px;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(280px,.75fr);gap:16px}
+header{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:22px;margin:0}small,.muted{color:var(--muted)}.tag{font-size:12px;border:1px solid #41664e;color:#9be0ac;padding:5px 9px;border-radius:99px}
+.panel{background:rgba(25,31,43,.96);border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:0 12px 36px #0003}
+.canvas-wrap{background:#090d14;border-radius:13px;overflow:hidden;position:relative}
+canvas{display:block;width:100%;height:auto;aspect-ratio:4/3}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{background:var(--accent);color:#0b1020;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+button:active{transform:scale(.98)}
+textarea{width:100%;min-height:100px;resize:vertical;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;outline:none}
+textarea:focus{border-color:var(--accent)}
+.chat{height:310px;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px;margin-bottom:12px}
+.msg{padding:10px 12px;border-radius:12px;max-width:95%;white-space:pre-wrap;line-height:1.4}
+.user{align-self:flex-end;background:#30436d}.bot{align-self:flex-start;background:var(--panel2)}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}
+.history{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.history button{text-align:left;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info{font-size:13px;line-height:1.5;color:var(--muted)}
+.db-form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.db-form input,.db-form select{min-width:0;width:100%;background:#0f1520;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit}.db-form button{grid-column:1/-1}.db-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.db-chip{font-size:12px;background:#263449;border:1px solid #40516b;border-radius:20px;padding:5px 8px;color:#dbe7f7}
+@media(max-width:760px){.app{grid-template-columns:1fr;padding:10px}header{align-items:flex-start;flex-direction:column}.chat{height:220px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><div><h1>✦ Local Draw Chat</h1><small>Власний процедурний рушій • працює локально • без API</small></div><span class="tag">● OFFLINE</span></header>
+<section class="panel">
+  <div class="canvas-wrap"><canvas id="art" width="960" height="720" aria-label="Згенероване зображення"></canvas></div>
+  <div class="toolbar">
+    <button id="save">Зберегти PNG</button>
+    <button class="secondary" id="redraw">Перемалювати</button>
+    <button class="secondary" id="clear">Очистити</button>
+  </div>
+  <p class="info" id="sceneInfo">Полотно 960 × 720. Введи опис сцени у чаті.</p>
+</section>
+<aside class="panel">
+  <h2 style="font-size:18px;margin:0 0 8px">Чат із художником</h2>
+  <div class="chat" id="chat">
+    <div class="msg bot">Привіт! Опиши, що намалювати. Наприклад: «фантастичне живе місто з крилами, гори, сонце і річка».</div>
+  </div>
+  <textarea id="prompt" placeholder="Напиши промпт українською або російською..."></textarea>
+  <div class="toolbar"><button id="draw" style="flex:1">✦ Намалювати</button><button class="secondary" id="example">Приклад</button></div>
+  <h3 style="font-size:15px;margin:18px 0 5px">Історія промптів</h3>
+  <div class="history" id="history"></div>
+  <h3 style="font-size:15px;margin:18px 0 5px">Власна база об'єктів</h3>
+  <p class="info">Додавай слова, за якими рушій має знаходити об'єкт у промпті. База зберігається у цьому браузері.</p>
+  <div class="db-form">
+    <input id="objName" placeholder="Назва об'єкта">
+    <input id="objWords" placeholder="Ключові слова через кому">
+    <select id="objType"><option value="circle">Коло</option><option value="square">Квадрат</option><option value="triangle">Трикутник</option><option value="star">Зірка</option><option value="house">Будинок</option><option value="tree">Дерево</option><option value="flower">Квітка</option><option value="robot">Робот</option></select>
+    <input id="objColor" type="color" value="#70c6ff" title="Колір об'єкта" aria-label="Колір об'єкта">
+    <button id="addObject">＋ Додати об'єкт у базу</button>
+  </div>
+  <div class="db-list" id="objectList"></div>
+  <div class="toolbar"><button class="secondary" id="exportDB">Експорт бази JSON</button><button class="secondary" id="importDB">Імпорт бази JSON</button><input id="importFile" type="file" accept="application/json,.json" hidden></div>
+  <p class="info">Це перша версія власного рушія: він розпізнає ключові слова та будує сцену з геометричних примітивів. Це не нейромережа й не фотореалістичний генератор.</p>
+</aside>
+</div>
+<script>
+(() => {
+const canvas=document.getElementById('art'),ctx=canvas.getContext('2d');
+const $=id=>document.getElementById(id);
+let lastPrompt='',seed=1,history=[];
+const DB_KEY='localDrawObjectDatabaseV1';
+const defaultObjects=[
+ {name:'Собака',words:['собака','пес','dog','щенок'],type:'dog',color:'#bd916d',builtin:true},
+ {name:'Будинок',words:['будинок','дом','хата'],type:'house',color:'#e6bd8d',builtin:true},
+ {name:'Місто',words:['місто','город','здание','будівля'],type:'building',color:'#8da8bb',builtin:true},
+ {name:'Дерево',words:['дерево','деревья','ліс','лес','tree'],type:'tree',color:'#43805b',builtin:true},
+ {name:'Робот',words:['робот','robot'],type:'robot',color:'#9eb9c9',builtin:true},
+ {name:'Квітка',words:['квітка','цветок','цветы','flower'],type:'flower',color:'#f4a6c8',builtin:true},
+ {name:'Атом',words:['атом','молекула','молекул'],type:'atom',color:'#9fe5ff',builtin:true}
+];
+let objectDB=loadDB();
+function loadDB(){try{const saved=JSON.parse(localStorage.getItem(DB_KEY));return Array.isArray(saved)?saved:defaultObjects.map(o=>({...o}))}catch(e){return defaultObjects.map(o=>({...o}))}}
+function saveDB(){localStorage.setItem(DB_KEY,JSON.stringify(objectDB));renderDBList()}
+function renderDBList(){const box=$('objectList');if(!box)return;box.innerHTML='';objectDB.forEach((o,i)=>{const chip=document.createElement('span');chip.className='db-chip';chip.textContent=o.name+' · '+o.type+(o.builtin?'':' ×');if(!o.builtin){chip.title='Натисни, щоб видалити';chip.style.cursor='pointer';chip.onclick=()=>{objectDB.splice(i,1);saveDB();if(lastPrompt)render(lastPrompt)}}box.appendChild(chip)})}
+
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+function rng(){seed=(seed*1664525+1013904223)>>>0;return seed/4294967296}
+function has(s,words){return words.some(w=>s.includes(w))}
+function ellipse(x,y,rx,ry,fill,stroke=null,lw=4){ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke()}}
+function path(points,fill,stroke=null,lw=4){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke()}}
+function line(x1,y1,x2,y2,color='#26334a',w=5){ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle=color;ctx.lineWidth=w;ctx.lineCap='round';ctx.stroke()}
+function text(t,x,y,size=28,color='#f5f7ff'){ctx.fillStyle=color;ctx.font=`700 ${size}px system-ui`;ctx.fillText(t,x,y)}
+function background(){let g=ctx.createLinearGradient(0,0,0,720);g.addColorStop(0,'#17294b');g.addColorStop(.65,'#536c8a');g.addColorStop(1,'#d49b78');ctx.fillStyle=g;ctx.fillRect(0,0,960,720);
+  for(let i=0;i<90;i++){let x=rng()*960,y=rng()*380;ellipse(x,y,1.5,1.5,'#ffffff88')}
+  ellipse(760,145,62,62,'#ffd88a');}
+function mountains(){path([[0,490],[170,250],[330,490]],'#465d79');path([[190,490],[470,205],[735,490]],'#354d6b');path([[520,490],[770,280],[960,490]],'#526984');path([[405,270],[470,205],[535,274],[490,258],[466,280]],'#e7edf1');}
+function water(){let g=ctx.createLinearGradient(0,480,0,720);g.addColorStop(0,'#477d9b');g.addColorStop(1,'#142e52');ctx.fillStyle=g;ctx.fillRect(0,490,960,230);for(let i=0;i<28;i++){let x=rng()*960,y=520+rng()*180;line(x,y,x+30+rng()*90,y,'#9ed7df88',2+rng()*2)}}
+function tree(x,y,k=1){line(x,y,x,y-95*k,'#49372f',12*k);for(let i=0;i<3;i++)ellipse(x+(rng()-.5)*48*k,y-90*k-i*22*k,35*k,28*k,['#326b57','#3f805c','#568b62'][i]);}
+function house(x,y,k=1){ctx.fillStyle='#e6bd8d';ctx.fillRect(x-65*k,y-100*k,130*k,100*k);path([[x-82*k,y-100*k],[x,y-165*k],[x+82*k,y-100*k]],'#a85d52','#482f3d',5*k);ctx.fillStyle='#4b7188';ctx.fillRect(x-42*k,y-72*k,32*k,34*k);ctx.fillRect(x+13*k,y-72*k,32*k,34*k);ctx.fillStyle='#68463b';ctx.fillRect(x-14*k,y-48*k,28*k,48*k)}
+function wings(x,y,k=1){ctx.strokeStyle='#e9efff';ctx.lineWidth=8*k;ctx.lineCap='round';for(let side of [-1,1]){ctx.beginPath();ctx.moveTo(x+side*35*k,y);ctx.bezierCurveTo(x+side*105*k,y-110*k,x+side*170*k,y-95*k,x+side*125*k,y-10*k);ctx.bezierCurveTo(x+side*95*k,y+18*k,x+side*65*k,y+8*k,x+side*35*k,y);ctx.stroke();for(let j=0;j<4;j++)line(x+side*(55+j*18)*k,y-8*k,x+side*(85+j*20)*k,y-(45-j*8)*k,'#b9d4ed',3*k)}}
+function building(x,y,k=1,withWings=false){ctx.fillStyle='#8da8bb';ctx.fillRect(x-65*k,y-235*k,130*k,235*k);ctx.fillStyle='#526d86';ctx.fillRect(x-45*k,y-195*k,90*k,195*k);path([[x-85*k,y-235*k],[x,y-310*k],[x+85*k,y-235*k]],'#c2d4df','#31455c',5*k);for(let r=0;r<5;r++)for(let c=0;c<3;c++){ctx.fillStyle='#f8d995';ctx.fillRect(x+(-34+c*28)*k,y+(-205+r*38)*k,12*k,19*k)}ellipse(x,y-315*k,15*k,15*k,'#f5d58d');if(withWings)wings(x,y-180*k,k)}
+function dog(x,y,k=1){ellipse(x,y-35*k,62*k,39*k,'#bd916d');ellipse(x+48*k,y-62*k,33*k,30*k,'#bd916d');ellipse(x+31*k,y-93*k,13*k,28*k,'#815b4d');ellipse(x+65*k,y-92*k,13*k,28*k,'#815b4d');ellipse(x+59*k,y-66*k,4*k,4*k,'#171923');ellipse(x+79*k,y-49*k,8*k,6*k,'#29212a');for(let dx of [-35,30])line(x+dx*k,y-12*k,x+dx*k,y+27*k,'#bd916d',12*k);line(x-57*k,y-43*k,x-88*k,y-72*k,'#bd916d',9*k)}
+function robot(x,y,k=1){ctx.fillStyle='#9eb9c9';ctx.fillRect(x-42*k,y-105*k,84*k,95*k);ellipse(x,y-145*k,49*k,43*k,'#b9d0db','#526d86',5*k);ellipse(x-17*k,y-150*k,7*k,9*k,'#63e8ff');ellipse(x+17*k,y-150*k,7*k,9*k,'#63e8ff');line(x-23*k,y-10*k,x-30*k,y+60*k,'#9eb9c9',15*k);line(x+23*k,y-10*k,x+30*k,y+60*k,'#9eb9c9',15*k);line(x-42*k,y-80*k,x-75*k,y-30*k,'#9eb9c9',13*k);line(x+42*k,y-80*k,x+75*k,y-30*k,'#9eb9c9',13*k)}
+function flower(x,y,k=1){line(x,y,x,y-65*k,'#397b52',5*k);for(let i=0;i<6;i++){let a=i*Math.PI/3;ellipse(x+Math.cos(a)*17*k,y-72*k+Math.sin(a)*17*k,12*k,12*k,'#f4a6c8')}ellipse(x,y-72*k,9*k,9*k,'#f6d46c')}
+function atom(x,y,k=1){ctx.strokeStyle='#9fe5ff';ctx.lineWidth=4;for(let a of [0,Math.PI/3,-Math.PI/3]){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.beginPath();ctx.ellipse(0,0,65*k,24*k,0,0,Math.PI*2);ctx.stroke();ctx.restore()}ellipse(x,y,10*k,10*k,'#fff2a6')}
+function customShape(type,x,y,color,k=1){
+ if(type==='house'){house(x,y,k);return} if(type==='tree'){tree(x,y,k);return} if(type==='flower'){flower(x,y,k);return} if(type==='robot'){robot(x,y,k);return}
+ if(type==='dog'){dog(x,y,k);return} if(type==='building'){building(x,y,k,false);return} if(type==='atom'){atom(x,y,k);return}
+ if(type==='circle'){ellipse(x,y-42*k,38*k,38*k,color,'#ffffffaa',4*k);return}
+ if(type==='square'){ctx.fillStyle=color;ctx.fillRect(x-38*k,y-80*k,76*k,76*k);ctx.strokeStyle='#ffffffaa';ctx.lineWidth=4*k;ctx.strokeRect(x-38*k,y-80*k,76*k,76*k);return}
+ if(type==='triangle'){path([[x,y-100*k],[x-48*k,y-10*k],[x+48*k,y-10*k]],color,'#ffffffaa',4*k);return}
+ if(type==='star'){ctx.beginPath();for(let i=0;i<10;i++){let a=-Math.PI/2+i*Math.PI/5,r=(i%2?20:46)*k;let px=x+Math.cos(a)*r,py=y-50*k+Math.sin(a)*r;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.strokeStyle='#ffffffaa';ctx.lineWidth=3*k;ctx.stroke()}
+}
+function render(prompt){
+ lastPrompt=prompt;seed=hash(prompt)||1;const s=prompt.toLowerCase();background();mountains();
+ if(has(s,['вода','річк','река','море','океан','озеро']))water();
+ // Ground and scene objects
+ ctx.fillStyle='#263d3b';ctx.fillRect(0,490,960,230);
+ if(has(s,['будин','дом','хата']))house(230,560,.95);
+ if(has(s,['міст','город','город','здани','здание','будівл','живе','живой']))building(610,560,1.0,has(s,['крил','крыл']));
+ if(has(s,['дерев','лес','ліс','tree'])){for(let i=0;i<5;i++)tree(70+i*175,560,.8+rng()*.4)}
+ if(has(s,['собак','пес','dog','щен']))dog(430,585,.85);
+ if(has(s,['робот','robot']))robot(790,575,.9);
+ if(has(s,['квіт','цвет','flower']))for(let i=0;i<7;i++)flower(80+i*125,635,.7+rng()*.4);
+ if(has(s,['атом','молекул']))atom(470,330,1.2);
+ if(has(s,['крил','крыл'])&&!has(s,['будівл','здание','міст','город','живе','живой']))wings(480,430,1.3);
+ // Custom objects from the user's local object database
+ objectDB.filter(o=>!o.builtin).forEach((o,i)=>{
+   if((o.words||[]).some(w=>w && s.includes(w.toLowerCase()))){
+     const positions=[[150,600],[350,600],[500,600],[800,600],[280,440],[700,430]];
+     const pos=positions[i%positions.length];customShape(o.type,pos[0],pos[1],o.color||'#70c6ff',.8);
+   }
+ });
+ // A few stars / decorative particles determined by prompt
+ for(let i=0;i<24;i++){let x=rng()*960,y=400+rng()*260;ellipse(x,y,1.5+rng()*2,1.5+rng()*2,'#f6e7c2aa')}
+ if(!has(s,['будин','дом','хата','міст','город','здани','здание','будівл','живе','живой','собак','пес','dog','робот','robot','дерев','лес','ліс','квіт','цвет','flower','атом','молекул','крил','крыл'])){house(480,560,1);text('ТВІЙ СВІТ',370,660,28)}
+ text('LOCAL DRAW',28,52,18,'#ffffffbb');
+ $('sceneInfo').textContent=`Промпт: ${prompt} • seed: ${hash(prompt)} • Об’єкти створені локальним рушієм`;
+}
+function addMessage(message,who){const el=document.createElement('div');el.className='msg '+who;el.textContent=message;$('chat').appendChild(el);$('chat').scrollTop=$('chat').scrollHeight}
+function draw(){const p=$('prompt').value.trim();if(!p){addMessage('Спочатку введи опис зображення.','bot');return}addMessage(p,'user');render(p);addMessage('Готово. Я побудував сцену з розпізнаних об’єктів і геометричних форм.','bot');history.unshift(p);history=[...new Set(history)].slice(0,8);updateHistory()}
+function updateHistory(){$('history').innerHTML='';history.forEach(p=>{let b=document.createElement('button');b.className='secondary';b.textContent=p;b.onclick=()=>{$('prompt').value=p;render(p)};$('history').appendChild(b)})}
+$('draw').onclick=draw;$('prompt').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();draw()}});
+$('example').onclick=()=>{$('prompt').value='Фантастичне живе місто з великими крилами, гори, річка і зоряне небо'};
+$('save').onclick=()=>{let a=document.createElement('a');a.download='local-draw.png';a.href=canvas.toDataURL('image/png');a.click()};
+$('redraw').onclick=()=>{if(lastPrompt)render(lastPrompt);else addMessage('Спочатку введи промпт.','bot')};
+$('clear').onclick=()=>{ctx.clearRect(0,0,960,720);$('sceneInfo').textContent='Полотно очищено.';lastPrompt=''};
+$('addObject').onclick=()=>{
+ const name=$('objName').value.trim(),words=$('objWords').value.split(',').map(v=>v.trim().toLowerCase()).filter(Boolean),type=$('objType').value,color=$('objColor').value;
+ if(!name||!words.length){addMessage('Вкажи назву об’єкта та хоча б одне ключове слово.','bot');return}
+ if(objectDB.some(o=>o.name.toLowerCase()===name.toLowerCase())){addMessage('Об’єкт із такою назвою вже є в базі.','bot');return}
+ objectDB.push({name,words,type,color,builtin:false});saveDB();$('objName').value='';$('objWords').value='';addMessage('Додано в базу: '+name+'. Тепер використай одне з ключових слів у промпті.','bot');if(lastPrompt)render(lastPrompt);
+};
+$('exportDB').onclick=()=>{const blob=new Blob([JSON.stringify(objectDB,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='local-draw-objects.json';a.click();URL.revokeObjectURL(a.href)};
+$('importDB').onclick=()=>$('importFile').click();
+$('importFile').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());if(!Array.isArray(data)||!data.every(o=>o.name&&Array.isArray(o.words)&&o.type))throw new Error('bad');objectDB=data;saveDB();addMessage('Базу об’єктів імпортовано.','bot');if(lastPrompt)render(lastPrompt)}catch(err){addMessage('Не вдалося імпортувати JSON-базу.','bot')}e.target.value=''};
+renderDBList();
+render('фантастичний пейзаж з горами та будинком');
+})();
+</script>
+</body>
+</html>
