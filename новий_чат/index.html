@@ -197,8 +197,6 @@
         <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
           <div class="flex justify-between items-center">
             <h3 class="text-md font-bold text-gray-900 dark:text-white">Доступные вопросы в базе</h3>
-            <span id="kbCount" class="text-xs px-2.5 py-1 bg-gray-100 dark
-�е вопросы в базе</h3>
             <span id="kbCount" class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-semibold">0 записей</span>
           </div>
           <div id="kbList" class="space-y-3 max-h-[450px] overflow-y-auto custom-scroll pr-1">
@@ -215,12 +213,16 @@
             <i class="fa-solid fa-book-bookmark text-brand-500"></i>
             <span>Словарь разработчика (понятия и термины)</span>
           </h2>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label class="block text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1">Термин / Слово</label>
               <input id="dictWord" type="text" placeholder="например: Closure, Замыкание" 
                 class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
-   class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1">Определение</label>
+              <input id="dictDef" type="text" placeholder="Определение или разбор термина..." 
+                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
             </div>
           </div>
           <button id="addDictBtn" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-2">
@@ -335,70 +337,237 @@
       THEME: 'devassistant_theme'
     };
 
+    // Starter Knowledge Base for Web Dev (JS /type="text" placeholder="display: flex; justify-content: center; align-items: center;" 
+                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm font-mono text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1">ÐŸÐ¾Ð´Ñ€Ð¾Ð±Ð½Ñ‹Ð¹ Ð¾Ñ‚Ð²ÐµÑ‚</label>
+            <textarea id="kbAnswer" rows="3" placeholder="Ð¢ÐµÐºÑÑ‚ Ð¾Ñ‚Ð²ÐµÑ‚Ð°..." 
+              class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none"></textarea>
+          </div>
+          <div class="flex flex-wrap gap-2 justify-between items-center">
+            <button id="addKbBtn" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-2">
+              <i class="fa-solid fa-save"></i>
+              <span>Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ Ð² Ð±Ð°Ð·Ñƒ</span>
+            </button>
+            <div class="flex gap-2">
+              <button id="exportJsonBtn" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium rounded-lg transition">
+                <i class="fa-solid fa-download mr-1"></i> Ð­ÐºÑÐ¿Ð¾Ñ€Ñ‚ JSON
+              </button>
+              <button id="importJsonBtn" class="px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-xs font-medium rounded-lg transition">
+                <i class="fa-solid fa-upload mr-1"></i> Ð˜Ð¼Ð¿Ð¾Ñ€Ñ‚ JSON
+              </button>
+              <input type="file" id="jsonFileInput" accept=".json" class="hidden">
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-md font-bold text-gray-900 dark:text-white">Ð”Ð¾ÑÑ‚ÑƒÐ¿Ð½Ñ‹Ðµ Ð²Ð¾Ð¿Ñ€Ð¾ÑÑ‹ Ð² Ð±Ð°Ð·Ðµ</h3>
+            <span id="kbCount" class="text-xs px-2.5 py-1 bg-gray-100 dark
+‹Ðµ Ð²Ð¾Ð¿Ñ€Ð¾ÑÑ‹ Ð² Ð±Ð°Ð·Ðµ</h3>
+            <span id="kbCount" class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-semibold">0 Ð·Ð°Ð¿Ð¸ÑÐµÐ¹</span>
+          </div>
+          <div id="kbList" class="space-y-3 max-h-[450px] overflow-y-auto custom-scroll pr-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: DICTIONARY -->
+      <section id="tab-dict" class="tab-content hidden space-y-6">
+        <!-- Add Word Form -->
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+          <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+            <i class="fa-solid fa-book-bookmark text-brand-500"></i>
+            <span>Ð¡Ð»Ð¾Ð²Ð°Ñ€ÑŒ Ñ€Ð°Ð·Ñ€Ð°Ð±Ð¾Ñ‚Ñ‡Ð¸ÐºÐ° (Ð¿Ð¾Ð½ÑÑ‚Ð¸Ñ Ð¸ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ñ‹)</span>
+          </h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-gray-500 dark:text-gray-400 mb-1">Ð¢ÐµÑ€Ð¼Ð¸Ð½ / Ð¡Ð»Ð¾Ð²Ð¾</label>
+              <input id="dictWord" type="text" placeholder="Ð½Ð°Ð¿Ñ€Ð¸Ð¼ÐµÑ€: Closure, Ð—Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ðµ" 
+                class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+   class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+            </div>
+          </div>
+          <button id="addDictBtn" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-sm font-medium transition shadow-sm flex items-center space-x-2">
+            <i class="fa-solid fa-plus"></i>
+            <span>Ð”Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ Ñ‚ÐµÑ€Ð¼Ð¸Ð½</span>
+          </button>
+        </div>
+
+        <!-- Dictionary List -->
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="text-md font-bold text-gray-900 dark:text-white">Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½Ð½Ñ‹Ðµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ñ‹</h3>
+            <span id="dictCount" class="text-xs px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full font-semibold">0 Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð¾Ð²</span>
+          </div>
+          <div id="dictList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[450px] overflow-y-auto custom-scroll pr-1">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 4: CODE SNIPPETS GENERATOR -->
+      <section id="tab-snippets" class="tab-content hidden space-y-6">
+        <div class="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+          <div class="flex justify-between items-center flex-wrap gap-2">
+            <div>
+              <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+                <i class="fa-solid fa-laptop-code text-brand-500"></i>
+                <span>ÐšÐ°Ñ‚Ð°Ð»Ð¾Ð³ Ð¸ Ð“ÐµÐ½ÐµÑ€Ð°Ñ‚Ð¾Ñ€ Ð¡Ð½Ð¸Ð¿Ð¿ÐµÑ‚Ð¾Ð² ÐšÐ¾Ð´Ð°</span>
+              </h2>
+              <p class="text-xs text-gray-500 dark:text-gray-400">Ð‘Ñ‹ÑÑ‚Ñ€Ñ‹Ðµ Ð³Ð¾Ñ‚Ð¾Ð²Ñ‹Ðµ ÑˆÐ°Ð±Ð»Ð¾Ð½Ñ‹ HTML, CSS Ð¸ JavaScript</p>
+            </div>
+            <!-- Filter Tabs -->
+            <div class="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+              <button data-lang="all" class="snippet-lang-btn active px-3 py-1 text-xs font-semibold rounded-md bg-white dark:bg-gray-800 text-brand-500 shadow-sm">Ð’ÑÐµ</button>
+              <button data-lang="js" class="snippet-lang-btn px-3 py-1 text-xs font-semibold rounded-md text-gray-600 dark:text-gray-300">JavaScript</button>
+              <button data-lang="html" class="snippet-lang-btn px-3 py-1 text-xs font-semibold rounded-md text-gray-600 dark:text-gray-300">HTML</button>
+              <button data-lang="css" class="snippet-lang-btn px-3 py-1 text-xs font-semibold rounded-md text-gray-600 dark:text-gray-300">CSS</button>
+            </div>
+          </div>
+
+          <div id="snippetsContainer" class="grid grid-cols-1 gap-4 max-h-[550px] overflow-y-auto custom-scroll pr-1">
+            <!-- Dynamically populated code snippets -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Settings Modal (Supabase Configuration) -->
+  <div id="settingsModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 border border-gray-200 dark:border-gray-700 shadow-xl space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center space-x-2">
+          <i class="fa-solid fa-cloud text-brand-500"></i>
+          <span>ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸ Supabase</span>
+        </h3>
+        <button id="closeSettingsBtn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-gray-500 dark:text-gray-400 space-y-2">
+        <p>Ð”Ð»Ñ ÑÐ¾Ð²Ð¼ÐµÑÑ‚Ð½Ð¾Ð³Ð¾ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ñ ÐµÐ´Ð¸Ð½Ð¾Ð¹ Ð±Ð°Ð·Ñ‹ Ð´Ð°Ð½Ð½Ñ‹Ñ… Ð¸ Ð°Ð½Ð¾Ð½Ð¸Ð¼Ð½Ð¾Ð¹ Ð°Ð²Ñ‚Ð¾Ñ€Ð¸Ð·Ð°Ñ†Ð¸Ð¸ Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡Ð¸Ñ‚Ðµ ÑÐ²Ð¾Ð¹ Ð¿Ñ€Ð¾ÐµÐºÑ‚ Supabase.</p>
+        <div class="p-2.5 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 font-mono text-[11px] text-gray-600 dark:text-gray-300">
+          <p class="font-semibold text-brand-500 mb-1">ÐÐµÐ¾Ð±Ñ…Ð¾Ð´Ð¸Ð¼Ñ‹Ðµ Ñ‚Ð°Ð±Ð»Ð¸Ñ†Ñ‹ Ð² Supabase:</p>
+          <p>1. <b>community_chat_db</b> (id, question, answer, code_snippet, user_id, created_at)</p>
+          <p>2. <b>community_words</b> (id, word, definition, user_id, created_at)</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Supabase URL</label>
+          <input id="supabaseUrlInput" type="text" placeholder="https://xyz.supabase.co" 
+            class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Supabase Anon Key</label>
+          <input id="supabaseKeyInput" type="password" placeholder="eyJh..." 
+            class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-500 outline-none">
+        </div>
+      </div>
+
+      <div class="flex gap-2 justify-end pt-2">
+        <button id="disconnectSupabaseBtn" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-lg text-xs font-semibold transition">
+          Ð¡Ð±Ñ€Ð¾ÑÐ¸Ñ‚ÑŒ ÐºÐ»ÑŽÑ‡
+        </button>
+        <button id="saveSettingsBtn" class="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg text-xs font-semibold transition shadow-sm">
+          Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ Ð¸ ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡Ð¸Ñ‚ÑŒ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-4 right-4 z-50 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg border border-gray-700 flex items-center space-x-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <i id="toastIcon" class="fa-solid fa-circle-check text-green-400"></i>
+    <span id="toastMsg" class="text-sm font-medium">Ð£Ð²ÐµÐ´Ð¾Ð¼Ð»ÐµÐ½Ð¸Ðµ</span>
+  </div>
+
+  <script>
+    'use strict';
+
+    // Local Storage Keys
+    const LS_KEYS = {
+      DB: 'devassistant_db_v2',
+      WORDS: 'devassistant_words_v2',
+      CHAT: 'devassistant_history_v2',
+      SUPABASE_URL: 'https://blmpavrvdesudcvqjhlz.supabase.co',
+      SUPABASE_KEY: 'sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN',
+      THEME: 'devassistant_theme'
+    };
+
     // Starter Knowledge Base for Web Dev (JS / HTML / CSS)
     const starterKB = [
       {
-        q: 'привет;здравствуй;добрый день;хай;hello',
-        a: 'Привет! Я твой чат-помощник по веб-разработке. Задавай вопросы по JavaScript, HTML, CSS или терминам!',
+        q: 'Ð¿Ñ€Ð¸Ð²ÐµÑ‚;Ð·Ð´Ñ€Ð°Ð²ÑÑ‚Ð²ÑƒÐ¹;Ð´Ð¾Ð±Ñ€Ñ‹Ð¹ Ð´ÐµÐ½ÑŒ;Ñ…Ð°Ð¹;hello',
+        a: 'ÐŸÑ€Ð¸Ð²ÐµÑ‚! Ð¯ Ñ‚Ð²Ð¾Ð¹ Ñ‡Ð°Ñ‚-Ð¿Ð¾Ð¼Ð¾Ñ‰Ð½Ð¸Ðº Ð¿Ð¾ Ð²ÐµÐ±-Ñ€Ð°Ð·Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐµ. Ð—Ð°Ð´Ð°Ð²Ð°Ð¹ Ð²Ð¾Ð¿Ñ€Ð¾ÑÑ‹ Ð¿Ð¾ JavaScript, HTML, CSS Ð¸Ð»Ð¸ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð¼!',
         code: ''
       },
       {
-        q: 'как выровнять div по центру;центрирование flexbox;flex center;выравнивание css',
-        a: 'Самый простой способ выровнять элемент по центру по обеим осям — использовать CSS Flexbox на родителе.',
+        q: 'ÐºÐ°Ðº Ð²Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ div Ð¿Ð¾ Ñ†ÐµÐ½Ñ‚Ñ€Ñƒ;Ñ†ÐµÐ½Ñ‚Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ flexbox;flex center;Ð²Ñ‹Ñ€Ð°Ð²Ð½Ð¸Ð²Ð°Ð½Ð¸Ðµ css',
+        a: 'Ð¡Ð°Ð¼Ñ‹Ð¹ Ð¿Ñ€Ð¾ÑÑ‚Ð¾Ð¹ ÑÐ¿Ð¾ÑÐ¾Ð± Ð²Ñ‹Ñ€Ð¾Ð²Ð½ÑÑ‚ÑŒ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚ Ð¿Ð¾ Ñ†ÐµÐ½Ñ‚Ñ€Ñƒ Ð¿Ð¾ Ð¾Ð±ÐµÐ¸Ð¼ Ð¾ÑÑÐ¼ â€” Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÑŒ CSS Flexbox Ð½Ð° Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»Ðµ.',
         code: '.parent {\n  display: flex;\n  justify-content: center;\n  align-items: center;\n  min-height: 100vh;\n}'
       },
       {
-        q: 'fetch api;как сделать запрос;async await fetch;получение данных js',
-        a: 'Функция `fetch` возвращает Promise. Использование `async/await` позволяет писать чистый асинхронный код.',
-        code: 'async function fetchData() {\n  try {\n    const response = await fetch("https://api.example.com/data");\n    const data = await response.json();\n    console.log(data);\n  } catch (error) {\n    console.error("Ошибка:", error);\n  }\n}'
+        q: 'fetch api;ÐºÐ°Ðº ÑÐ´ÐµÐ»Ð°Ñ‚ÑŒ Ð·Ð°Ð¿Ñ€Ð¾Ñ;async await fetch;Ð¿Ð¾Ð»ÑƒÑ‡ÐµÐ½Ð¸Ðµ Ð´Ð°Ð½Ð½Ñ‹Ñ… js',
+        a: 'Ð¤ÑƒÐ½ÐºÑ†Ð¸Ñ `fetch` Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‰Ð°ÐµÑ‚ Promise. Ð˜ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ðµ `async/await` Ð¿Ð¾Ð·Ð²Ð¾Ð»ÑÐµÑ‚ Ð¿Ð¸ÑÐ°Ñ‚ÑŒ Ñ‡Ð¸ÑÑ‚Ñ‹Ð¹ Ð°ÑÐ¸Ð½Ñ…Ñ€Ð¾Ð½Ð½Ñ‹Ð¹ ÐºÐ¾Ð´.',
+        code: 'async function fetchData() {\n  try {\n    const response = await fetch("https://api.example.com/data");\n    const data = await response.json();\n    console.log(data);\n  } catch (error) {\n    console.error("ÐžÑˆÐ¸Ð±ÐºÐ°:", error);\n  }\n}'
       },
       {
-        q: 'делегирование событий;event delegation;обработчик событий js',
-        a: 'Делегирование событий позволяет повесить один обработчик на родительский элемент вместо того, чтобы вешать их на каждый дочерний элемент.',
-        code: 'document.getElementById("list").addEventListener("click", (e) => {\n  if (e.target.tagName === "LI") {\n    console.log("Кликнули на элемент:", e.target.textContent);\n  }\n});'
+        q: 'Ð´ÐµÐ»ÐµÐ³Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ ÑÐ¾Ð±Ñ‹Ñ‚Ð¸Ð¹;event delegation;Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚Ñ‡Ð¸Ðº ÑÐ¾Ð±Ñ‹Ñ‚Ð¸Ð¹ js',
+        a: 'Ð”ÐµÐ»ÐµÐ³Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¸Ðµ ÑÐ¾Ð±Ñ‹Ñ‚Ð¸Ð¹ Ð¿Ð¾Ð·Ð²Ð¾Ð»ÑÐµÑ‚ Ð¿Ð¾Ð²ÐµÑÐ¸Ñ‚ÑŒ Ð¾Ð´Ð¸Ð½ Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚Ñ‡Ð¸Ðº Ð½Ð° Ñ€Ð¾Ð´Ð¸Ñ‚ÐµÐ»ÑŒÑÐºÐ¸Ð¹ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚ Ð²Ð¼ÐµÑÑ‚Ð¾ Ñ‚Ð¾Ð³Ð¾, Ñ‡Ñ‚Ð¾Ð±Ñ‹ Ð²ÐµÑˆÐ°Ñ‚ÑŒ Ð¸Ñ… Ð½Ð° ÐºÐ°Ð¶Ð´Ñ‹Ð¹ Ð´Ð¾Ñ‡ÐµÑ€Ð½Ð¸Ð¹ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚.',
+        code: 'document.getElementById("list").addEventListener("click", (e) => {\n  if (e.target.tagName === "LI") {\n    console.log("ÐšÐ»Ð¸ÐºÐ½ÑƒÐ»Ð¸ Ð½Ð° ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚:", e.target.textContent);\n  }\n});'
       },
       {
-        q: 'что такое closure;замыкание js;пример замыкания',
-        a: 'Замыкание (Closure) — это комбинация функции и окружения, в котором эта функция была объявлена. Окружение состоит из любых локальных переменных, которые были в зоне видимости во время создания замыкания.',
+        q: 'Ñ‡Ñ‚Ð¾ Ñ‚Ð°ÐºÐ¾Ðµ closure;Ð·Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ðµ js;Ð¿Ñ€Ð¸Ð¼ÐµÑ€ Ð·Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ñ',
+        a: 'Ð—Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ðµ (Closure) â€” ÑÑ‚Ð¾ ÐºÐ¾Ð¼Ð±Ð¸Ð½Ð°Ñ†Ð¸Ñ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð¸ Ð¾ÐºÑ€ÑƒÐ¶ÐµÐ½Ð¸Ñ, Ð² ÐºÐ¾Ñ‚Ð¾Ñ€Ð¾Ð¼ ÑÑ‚Ð° Ñ„ÑƒÐ½ÐºÑ†Ð¸Ñ Ð±Ñ‹Ð»Ð° Ð¾Ð±ÑŠÑÐ²Ð»ÐµÐ½Ð°. ÐžÐºÑ€ÑƒÐ¶ÐµÐ½Ð¸Ðµ ÑÐ¾ÑÑ‚Ð¾Ð¸Ñ‚ Ð¸Ð· Ð»ÑŽÐ±Ñ‹Ñ… Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ñ‹Ñ… Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ñ‹Ñ…, ÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ðµ Ð±Ñ‹Ð»Ð¸ Ð² Ð·Ð¾Ð½Ðµ Ð²Ð¸Ð´Ð¸Ð¼Ð¾ÑÑ‚Ð¸ Ð²Ð¾ Ð²Ñ€ÐµÐ¼Ñ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ Ð·Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ñ.',
         code: 'function createCounter() {\n  let count = 0;\n  return function() {\n    count++;\n    return count;\n  };\n}\nconst counter = createCounter();\nconsole.log(counter()); // 1\nconsole.log(counter()); // 2'
       },
       {
-        q: 'css grid шаблоны;сетка css grid;grid layout',
-        a: 'CSS Grid — это двумерная система сеток для создания сложных адаптивных макетов.',
+        q: 'css grid ÑˆÐ°Ð±Ð»Ð¾Ð½Ñ‹;ÑÐµÑ‚ÐºÐ° css grid;grid layout',
+        a: 'CSS Grid â€” ÑÑ‚Ð¾ Ð´Ð²ÑƒÐ¼ÐµÑ€Ð½Ð°Ñ ÑÐ¸ÑÑ‚ÐµÐ¼Ð° ÑÐµÑ‚Ð¾Ðº Ð´Ð»Ñ ÑÐ¾Ð·Ð´Ð°Ð½Ð¸Ñ ÑÐ»Ð¾Ð¶Ð½Ñ‹Ñ… Ð°Ð´Ð°Ð¿Ñ‚Ð¸Ð²Ð½Ñ‹Ñ… Ð¼Ð°ÐºÐµÑ‚Ð¾Ð².',
         code: '.container {\n  display: grid;\n  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));\n  gap: 1rem;\n}'
       }
     ];
 
     const starterWords = {
-      'DOM': 'Document Object Model — программный интерфейс (API) для HTML и XML документов.',
-      'Closure': 'Замыкание — способность функции запоминать свою внешнюю область видимости даже после её завершения.',
-      'Flexbox': 'CSS Flexible Box Layout — 1D модель макета для выравнивания элементов в строку или колонку.',
-      'Promise': 'Объект в JS, представляющий результат успешного или неудачного завершения асинхронной операции.'
+      'DOM': 'Document Object Model â€” Ð¿Ñ€Ð¾Ð³Ñ€Ð°Ð¼Ð¼Ð½Ñ‹Ð¹ Ð¸Ð½Ñ‚ÐµÑ€Ñ„ÐµÐ¹Ñ (API) Ð´Ð»Ñ HTML Ð¸ XML Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð¾Ð².',
+      'Closure': 'Ð—Ð°Ð¼Ñ‹ÐºÐ°Ð½Ð¸Ðµ â€” ÑÐ¿Ð¾ÑÐ¾Ð±Ð½Ð¾ÑÑ‚ÑŒ Ñ„ÑƒÐ½ÐºÑ†Ð¸Ð¸ Ð·Ð°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ñ‚ÑŒ ÑÐ²Ð¾ÑŽ Ð²Ð½ÐµÑˆÐ½ÑŽÑŽ Ð¾Ð±Ð»Ð°ÑÑ‚ÑŒ Ð²Ð¸Ð´Ð¸Ð¼Ð¾ÑÑ‚Ð¸ Ð´Ð°Ð¶Ðµ Ð¿Ð¾ÑÐ»Ðµ ÐµÑ‘ Ð·Ð°Ð²ÐµÑ€ÑˆÐµÐ½Ð¸Ñ.',
+      'Flexbox': 'CSS Flexible Box Layout â€” 1D Ð¼Ð¾Ð´ÐµÐ»ÑŒ Ð¼Ð°ÐºÐµÑ‚Ð° Ð´Ð»Ñ Ð²Ñ‹Ñ€Ð°Ð²Ð½Ð¸Ð²Ð°Ð½Ð¸Ñ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚Ð¾Ð² Ð² ÑÑ‚Ñ€Ð¾ÐºÑƒ Ð¸Ð»Ð¸ ÐºÐ¾Ð»Ð¾Ð½ÐºÑƒ.',
+      'Promise': 'ÐžÐ±ÑŠÐµÐºÑ‚ Ð² JS, Ð¿Ñ€ÐµÐ´ÑÑ‚Ð°Ð²Ð»ÑÑŽÑ‰Ð¸Ð¹ Ñ€ÐµÐ·ÑƒÐ»ÑŒÑ‚Ð°Ñ‚ ÑƒÑÐ¿ÐµÑˆÐ½Ð¾Ð³Ð¾ Ð¸Ð»Ð¸ Ð½ÐµÑƒÐ´Ð°Ñ‡Ð½Ð¾Ð³Ð¾ Ð·Ð°Ð²ÐµÑ€ÑˆÐµÐ½Ð¸Ñ Ð°ÑÐ¸Ð½Ñ…Ñ€Ð¾Ð½Ð½Ð¾Ð¹ Ð¾Ð¿ÐµÑ€Ð°Ñ†Ð¸Ð¸.'
     };
 
     const starterSnippets = [
       {
-        title: 'Универсальный сброс CSS (Reset)',
+        title: 'Ð£Ð½Ð¸Ð²ÐµÑ€ÑÐ°Ð»ÑŒÐ½Ñ‹Ð¹ ÑÐ±Ñ€Ð¾Ñ CSS (Reset)',
         lang: 'css',
-        desc: 'Базовое обнуление отступов и настройка border-box',
+        desc: 'Ð‘Ð°Ð·Ð¾Ð²Ð¾Ðµ Ð¾Ð±Ð½ÑƒÐ»ÐµÐ½Ð¸Ðµ Ð¾Ñ‚ÑÑ‚ÑƒÐ¿Ð¾Ð² Ð¸ Ð½Ð°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ° border-box',
         code: `*, *::before, *::after {\n  box-sizing: border-box;\n  margin: 0;\n  padding: 0;\n}`
       },
       {
-        title: 'Запрос данных Async/Await Fetch',
+        title: 'Ð—Ð°Ð¿Ñ€Ð¾Ñ Ð´Ð°Ð½Ð½Ñ‹Ñ… Async/Await Fetch',
         lang: 'js',
-        desc: 'Шаблон безопасного GET запроса с обработкой ошибок',
+        desc: 'Ð¨Ð°Ð±Ð»Ð¾Ð½ Ð±ÐµÐ·Ð¾Ð¿Ð°ÑÐ½Ð¾Ð³Ð¾ GET Ð·Ð°Ð¿Ñ€Ð¾ÑÐ° Ñ Ð¾Ð±Ñ€Ð°Ð±Ð¾Ñ‚ÐºÐ¾Ð¹ Ð¾ÑˆÐ¸Ð±Ð¾Ðº',
         code: `async function getData(url) {\n  try {\n    const res = await fetch(url);\n    if (!res.ok) throw new Error(\`HTTP status: \${res.status}\`);\n    return await res.json();\n  } catch (err) {\n    console.error('Fetch error:', err);\n  }\n}`
       },
       {
-        title: 'Адаптивный мета-тег HTML5',
+        title: 'ÐÐ´Ð°Ð¿Ñ‚Ð¸Ð²Ð½Ñ‹Ð¹ Ð¼ÐµÑ‚Ð°-Ñ‚ÐµÐ³ HTML5',
         lang: 'html',
-        desc: 'Стандартная разметка карточки HTML5 с метатегами',
+        desc: 'Ð¡Ñ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð°Ñ Ñ€Ð°Ð·Ð¼ÐµÑ‚ÐºÐ° ÐºÐ°Ñ€Ñ‚Ð¾Ñ‡ÐºÐ¸ HTML5 Ñ Ð¼ÐµÑ‚Ð°Ñ‚ÐµÐ³Ð°Ð¼Ð¸',
         code: `<!DOCTYPE html>\n<html lang="ru">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>App</title>\n</head>\n<body>\n  <div id="app"></div>\n</body>\n</html>`
       },
       {
-        title: 'Анимация плавной подгрузки (Fade In)',
+        title: 'ÐÐ½Ð¸Ð¼Ð°Ñ†Ð¸Ñ Ð¿Ð»Ð°Ð²Ð½Ð¾Ð¹ Ð¿Ð¾Ð´Ð³Ñ€ÑƒÐ·ÐºÐ¸ (Fade In)',
         lang: 'css',
-        desc: 'Ключевые кадры для плавного появления элементов',
+        desc: 'ÐšÐ»ÑŽÑ‡ÐµÐ²Ñ‹Ðµ ÐºÐ°Ð´Ñ€Ñ‹ Ð´Ð»Ñ Ð¿Ð»Ð°Ð²Ð½Ð¾Ð³Ð¾ Ð¿Ð¾ÑÐ²Ð»ÐµÐ½Ð¸Ñ ÑÐ»ÐµÐ¼ÐµÐ½Ñ‚Ð¾Ð²',
         code: `@keyframes fadeIn {\n  from { opacity: 0; transform: translateY(10px); }\n  to { opacity: 1; transform: translateY(0); }\n}\n\n.fade-element {\n  animation: fadeIn 0.3s ease-out forwards;\n}`
       }
     ];
@@ -423,7 +592,7 @@
     }
 
     function normalize(text) {
-      return String(text || '').toLowerCase().replace(/ё/g, 'е').replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
+      return String(text || '').toLowerCase().replace(/Ñ‘/g, 'Ðµ').replace(/[^\p{L}\p{N}\s-]/gu, ' ').replace(/\s+/g, ' ').trim();
     }
 
     function showToast(message, type = 'success') {
@@ -465,27 +634,27 @@
           currentUserId = authData.user ? authData.user.id : 'anon';
           
           connectionBadge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700";
-          connectionText.textContent = "Supabase Облако";
+          connectionText.textContent = "Supabase ÐžÐ±Ð»Ð°ÐºÐ¾";
           userBadge.classList.remove('hidden');
           document.getElementById('userIdDisplay').textContent = currentUserId.substring(0, 8) + '...';
-          syncIndicator.innerHTML = '<i class="fa-solid fa-cloud"></i> Синхронизация с Supabase активна';
+          syncIndicator.innerHTML = '<i class="fa-solid fa-cloud"></i> Ð¡Ð¸Ð½Ñ…Ñ€Ð¾Ð½Ð¸Ð·Ð°Ñ†Ð¸Ñ Ñ Supabase Ð°ÐºÑ‚Ð¸Ð²Ð½Ð°';
 
           // Fetch Cloud Data
           await fetchCloudData();
-          showToast('Подключено к Supabase!');
+          showToast('ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¾ Ðº Supabase!');
           return;
         } catch (err) {
           console.warn("Supabase init error:", err);
-          showToast('Ошибка подключения Supabase. Переход в офлайн режим.', 'error');
+          showToast('ÐžÑˆÐ¸Ð±ÐºÐ° Ð¿Ð¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ñ Supabase. ÐŸÐµÑ€ÐµÑ…Ð¾Ð´ Ð² Ð¾Ñ„Ð»Ð°Ð¹Ð½ Ñ€ÐµÐ¶Ð¸Ð¼.', 'error');
         }
       }
 
       // Offline / Fallback Status
       supabaseClient = null;
       connectionBadge.className = "flex items-center space-x-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700";
-      connectionText.textContent = "Локальный режим";
+      connectionText.textContent = "Ð›Ð¾ÐºÐ°Ð»ÑŒÐ½Ñ‹Ð¹ Ñ€ÐµÐ¶Ð¸Ð¼";
       userBadge.classList.add('hidden');
-      syncIndicator.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Локальная БД активна';
+      syncIndicator.innerHTML = '<i class="fa-solid fa-shield-halved"></i> Ð›Ð¾ÐºÐ°Ð»ÑŒÐ½Ð°Ñ Ð‘Ð” Ð°ÐºÑ‚Ð¸Ð²Ð½Ð°';
     }
 
     // Fetch data from Supabase tables
@@ -536,7 +705,7 @@
         container.innerHTML = `
           <div class="text-center py-12 text-gray-400">
             <i class="fa-solid fa-robot text-4xl mb-3 text-brand-500/50"></i>
-            <p class="text-sm">Задайте любой вопрос по HTML, CSS, JS или терминам.</p>
+            <p class="text-sm">Ð—Ð°Ð´Ð°Ð¹Ñ‚Ðµ Ð»ÑŽÐ±Ð¾Ð¹ Ð²Ð¾Ð¿Ñ€Ð¾Ñ Ð¿Ð¾ HTML, CSS, JS Ð¸Ð»Ð¸ Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð°Ð¼.</p>
           </div>
         `;
         return;
@@ -561,7 +730,7 @@
             <div class="mt-2.5 relative group">
               <pre class="bg-gray-900 text-gray-100 p-3 rounded-lg text-xs overflow-x-auto"><code>${escapeHtml(msg.code)}</code></pre>
               <button onclick="copyToClipboard('${escapeJsString(msg.code)}')" class="absolute top-2 right-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded text-[10px] opacity-80 group-hover:opacity-100 transition">
-                <i class="fa-regular fa-copy mr-1"></i>Копировать
+                <i class="fa-regular fa-copy mr-1"></i>ÐšÐ¾Ð¿Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ
               </button>
             </div>
           `;
@@ -577,11 +746,11 @@
 
     function renderKB() {
       const container = document.getElementById('kbList');
-      document.getElementById('kbCount').textContent = `${localKB.length} записей`;
+      document.getElementById('kbCount').textContent = `${localKB.length} Ð·Ð°Ð¿Ð¸ÑÐµÐ¹`;
       container.innerHTML = '';
 
       if (localKB.length === 0) {
-        container.innerHTML = '<p class="text-sm text-gray-400 py-4 text-center">База вопросов пуста</p>';
+        container.innerHTML = '<p class="text-sm text-gray-400 py-4 text-center">Ð‘Ð°Ð·Ð° Ð²Ð¾Ð¿Ñ€Ð¾ÑÐ¾Ð² Ð¿ÑƒÑÑ‚Ð°</p>';
         return;
       }
 
@@ -597,7 +766,7 @@
             <div class="text-gray-700 dark:text-gray-300">A: ${escapeHtml(item.a)}</div>
             ${codeSnippetHtml}
           </div>
-          <button onclick="deleteKBItem(${idx})" class="text-red-400 hover:text-red-600 p-1 transition" title="Удалить">
+          <button onclick="deleteKBItem(${idx})" class="text-red-400 hover:text-red-600 p-1 transition" title="Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ">
             <i class="fa-solid fa-trash-can"></i>
           </button>
         `;
@@ -608,11 +777,11 @@
     function renderDict() {
       const container = document.getElementById('dictList');
       const keys = Object.keys(localWords);
-      document.getElementById('dictCount').textContent = `${keys.length} терминов`;
+      document.getElementById('dictCount').textContent = `${keys.length} Ñ‚ÐµÑ€Ð¼Ð¸Ð½Ð¾Ð²`;
       container.innerHTML = '';
 
       if (keys.length === 0) {
-        container.innerHTML = '<p class="text-sm text-gray-400 py-4 text-center col-span-2">Словарь пуст</p>';
+        container.innerHTML = '<p class="text-sm text-gray-400 py-4 text-center col-span-2">Ð¡Ð»Ð¾Ð²Ð°Ñ€ÑŒ Ð¿ÑƒÑÑ‚</p>';
         return;
       }
 
@@ -651,7 +820,7 @@
             </div>
             <button onclick="copyToClipboard('${escapeJsString(s.code)}')" class="px-2.5 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-xs font-medium rounded-md transition flex items-center space-x-1">
               <i class="fa-regular fa-copy"></i>
-              <span>Копировать</span>
+              <span>ÐšÐ¾Ð¿Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ</span>
             </button>
           </div>
           <p class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(s.desc)}</p>
@@ -699,13 +868,13 @@
       }
 
       if (foundWords.length > 0) {
-        const defStr = foundWords.map(w => `• **${w.word}**: ${w.def}`).join('\n');
-        return { text: `Найден термин в словаре:\n${defStr}` };
+        const defStr = foundWords.map(w => `â€¢ **${w.word}**: ${w.def}`).join('\n');
+        return { text: `ÐÐ°Ð¹Ð´ÐµÐ½ Ñ‚ÐµÑ€Ð¼Ð¸Ð½ Ð² ÑÐ»Ð¾Ð²Ð°Ñ€Ðµ:\n${defStr}` };
       }
 
       // 3. Fallback Response
       return {
-        text: 'К сожалению, в локальной базе и словаре нет точного ответа. Вы можете добавить этот вопрос и код в раздел «База вопросов».'
+        text: 'Ðš ÑÐ¾Ð¶Ð°Ð»ÐµÐ½Ð¸ÑŽ, Ð² Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾Ð¹ Ð±Ð°Ð·Ðµ Ð¸ ÑÐ»Ð¾Ð²Ð°Ñ€Ðµ Ð½ÐµÑ‚ Ñ‚Ð¾Ñ‡Ð½Ð¾Ð³Ð¾ Ð¾Ñ‚Ð²ÐµÑ‚Ð°. Ð’Ñ‹ Ð¼Ð¾Ð¶ÐµÑ‚Ðµ Ð´Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ ÑÑ‚Ð¾Ñ‚ Ð²Ð¾Ð¿Ñ€Ð¾Ñ Ð¸ ÐºÐ¾Ð´ Ð² Ñ€Ð°Ð·Ð´ÐµÐ» Â«Ð‘Ð°Ð·Ð° Ð²Ð¾Ð¿Ñ€Ð¾ÑÐ¾Ð²Â».'
       };
     }
 
@@ -739,7 +908,7 @@
       const code = cInput.value.trim();
 
       if (!q || !a) {
-        showToast('Заполните вопрос и ответ', 'error');
+        showToast('Ð—Ð°Ð¿Ð¾Ð»Ð½Ð¸Ñ‚Ðµ Ð²Ð¾Ð¿Ñ€Ð¾Ñ Ð¸ Ð¾Ñ‚Ð²ÐµÑ‚', 'error');
         return;
       }
 
@@ -756,12 +925,12 @@
             code_snippet: code,
             user_id: currentUserId || 'anon'
           }]);
-          showToast('Сохранено локально и в Supabase!');
+          showToast('Ð¡Ð¾Ñ…Ñ€Ð°Ð½ÐµÐ½Ð¾ Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾ Ð¸ Ð² Supabase!');
         } catch (e) {
-          showToast('Сохранено локально (ошибка Supabase)');
+          showToast('Ð¡Ð¾Ñ…Ñ€Ð°Ð½ÐµÐ½Ð¾ Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾ (Ð¾ÑˆÐ¸Ð±ÐºÐ° Supabase)');
         }
       } else {
-        showToast('Ответ сохранён локально');
+        showToast('ÐžÑ‚Ð²ÐµÑ‚ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½ Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾');
       }
 
       qInput.value = '';
@@ -778,7 +947,7 @@
       const def = dInput.value.trim();
 
       if (!word || !def) {
-        showToast('Заполните термин и определение', 'error');
+        showToast('Ð—Ð°Ð¿Ð¾Ð»Ð½Ð¸Ñ‚Ðµ Ñ‚ÐµÑ€Ð¼Ð¸Ð½ Ð¸ Ð¾Ð¿Ñ€ÐµÐ´ÐµÐ»ÐµÐ½Ð¸Ðµ', 'error');
         return;
       }
 
@@ -792,12 +961,12 @@
             definition: def,
             user_id: currentUserId || 'anon'
           }]);
-          showToast('Термин добавлен в облако!');
+          showToast('Ð¢ÐµÑ€Ð¼Ð¸Ð½ Ð´Ð¾Ð±Ð°Ð²Ð»ÐµÐ½ Ð² Ð¾Ð±Ð»Ð°ÐºÐ¾!');
         } catch (e) {
-          showToast('Термин сохранён локально');
+          showToast('Ð¢ÐµÑ€Ð¼Ð¸Ð½ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½ Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾');
         }
       } else {
-        showToast('Термин сохранён локально');
+        showToast('Ð¢ÐµÑ€Ð¼Ð¸Ð½ ÑÐ¾Ñ…Ñ€Ð°Ð½Ñ‘Ð½ Ð»Ð¾ÐºÐ°Ð»ÑŒÐ½Ð¾');
       }
 
       wInput.value = '';
@@ -809,14 +978,14 @@
       localKB.splice(index, 1);
       writeStorage(LS_KEYS.DB, localKB);
       renderKB();
-      showToast('Запись удалена');
+      showToast('Ð—Ð°Ð¿Ð¸ÑÑŒ ÑƒÐ´Ð°Ð»ÐµÐ½Ð°');
     };
 
     window.deleteDictItem = function(key) {
       delete localWords[key];
       writeStorage(LS_KEYS.WORDS, localWords);
       renderDict();
-      showToast('Термин удален');
+      showToast('Ð¢ÐµÑ€Ð¼Ð¸Ð½ ÑƒÐ´Ð°Ð»ÐµÐ½');
     };
 
     window.copyToClipboard = function(text) {
@@ -826,7 +995,7 @@
       dummy.select();
       document.execCommand('copy');
       document.body.removeChild(dummy);
-      showToast('Скопировано в буфер!');
+      showToast('Ð¡ÐºÐ¾Ð¿Ð¸Ñ€Ð¾Ð²Ð°Ð½Ð¾ Ð² Ð±ÑƒÑ„ÐµÑ€!');
     };
 
     function escapeHtml(str) {
@@ -919,9 +1088,9 @@
             writeStorage(LS_KEYS.WORDS, localWords);
             renderKB();
             renderDict();
-            showToast('Данные успешно импортированы!');
+            showToast('Ð”Ð°Ð½Ð½Ñ‹Ðµ ÑƒÑÐ¿ÐµÑˆÐ½Ð¾ Ð¸Ð¼Ð¿Ð¾Ñ€Ñ‚Ð¸Ñ€Ð¾Ð²Ð°Ð½Ñ‹!');
           } catch (err) {
-            showToast('Ошибка при чтении JSON', 'error');
+            showToast('ÐžÑˆÐ¸Ð±ÐºÐ° Ð¿Ñ€Ð¸ Ñ‡Ñ‚ÐµÐ½Ð¸Ð¸ JSON', 'error');
           }
         };
         reader.readAsText(file);
@@ -965,7 +1134,7 @@
         keyInput.value = '';
         modal.classList.add('hidden');
         await initSupabase();
-        showToast('Ключи Supabase удалены');
+        showToast('ÐšÐ»ÑŽÑ‡Ð¸ Supabase ÑƒÐ´Ð°Ð»ÐµÐ½Ñ‹');
       };
     }
 
@@ -985,7 +1154,7 @@
         chatHistory = [];
         writeStorage(LS_KEYS.CHAT, []);
         renderChat();
-        showToast('История очищена');
+        showToast('Ð˜ÑÑ‚Ð¾Ñ€Ð¸Ñ Ð¾Ñ‡Ð¸Ñ‰ÐµÐ½Ð°');
       };
 
       // Snippets Filter
