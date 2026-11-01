@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<style></style>
-  <style>
+<style>
     * {
       box-sizing: border-box;
       margin: 0;
@@ -62,7 +61,7 @@
       background: #ef4444;
       color: #ffffff;
     }
-  </style>
+</style>
 </head>
 <body><h1>Главный индекс</h1>
 <a href="game_rezist_attack_word/index.html">Game rezist attack word with shop</a><br>
@@ -117,6 +116,38 @@
 <a href="listjs/index.html">Список 1. JavaScript (все категории функций).</a>
 <br>
 <a href="listjs-com/index.html">Список 2. JavaScript железо (все категории функций).</a>
-<script></script>
+<div class="card">
+    <h2>Просмотры страницы</h2>
+    <div id="visit-count" class="counter-display">0</div>
+    <button id="reset-btn" class="btn-reset">Сбросить счетчик</button>
+</div>
+<script>
+    // 1. Получаем элементы со страницы
+    const counterDisplay = document.getElementById('visit-count');
+    const resetButton = document.getElementById('reset-btn');
+
+    // 2. Считываем сохраненное количество посещений
+    let visits = localStorage.getItem('page_visit_count');
+
+    // Если сохраненного значения нет — инициализируем нулем
+    if (visits === null) {
+      visits = 0;
+    }
+
+    // 3. Увеличиваем на 1 текущий визит
+    visits = parseInt(visits) + 1;
+
+    // 4. Сохраняем новое значение обратно в localStorage
+    localStorage.setItem('page_visit_count', visits);
+
+    // 5. Выводим значение на страницу
+    counterDisplay.textContent = visits;
+
+    // Сброс счетчика при клике на кнопку
+    resetButton.addEventListener('click', () => {
+      localStorage.setItem('page_visit_count', 0);
+      counterDisplay.textContent = 0;
+    });
+</script>
 </body>
 </html>
