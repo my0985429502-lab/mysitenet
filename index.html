@@ -126,11 +126,6 @@
 
     // 5. Выводим значение на страницу
     counterDisplay.textContent = visits;
-
-    // Сброс счетчика при клике на кнопку
-    resetButton.addEventListener('click', () => {
-      localStorage.setItem('page_visit_count', 0);
-      counterDisplay.textContent = 0;
     });
 </script>
 </body>
