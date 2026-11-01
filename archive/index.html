@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VideoChronicle - Видео-дневник и Хроника</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            900: '#14532d',
+                        },
+                        accent: {
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & Font Awesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Кастомный скроллбар */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.5);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(107, 114, 128, 0.8);
+        }
+        
+        /* Плавные переходы */
+        .transition-all-300 {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Адаптивный видеоконтейнер 16:9 */
+        .aspect-video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 0.75rem;
+        }
+        .aspect-video-container iframe,
+        .aspect-video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+        }
+
+        /* Стиль для постера видео */
+        .video-poster {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            z-index: 10;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-slate-900 dark:text-gray-100 font-sans min-h-screen transition-colors duration-300 flex flex-col">
+
+    <!-- Верхняя панель навигации -->
+    <header class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-slate-900/80 border-b border-gray-200 dark:border-slate-800 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Логотип -->
+                <div class="flex items-center gap-3 cursor-pointer" onclick="resetFilters()">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-500 to-accent-500 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                        <i class="fa-solid font-bold fa-play text-lg ml-0.5"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg leading-tight tracking-tight bg-gradient-to-r from-brand-600 to-accent-500 bg-clip-text text-transparent dark:from-brand-500 dark:to-accent-500">
+                            VideoChronicle
+                        </h1>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 font-medium">Ежедневный видео-дневник</p>
+                    </div>
+                </div>
+
+                <!-- Поиск и фильтры на десктопе -->
+                <div class="hidden md:flex items-center gap-4 flex-1 max-w-md mx-8">
+                    <div class="relative w-full">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="searchInput" oninput="handleSearch()" placeholder="Поиск по названию, тегам или описанию..." 
+                            class="w-full pl-10 pr-4 py-2 text-sm bg-gray-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-white transition-all">
+                    </div>
+                </div>
+
+                <!-- Кнопки управления -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <!-- Кнопка смены вида (Timeline / Grid) -->
+                    <button id="viewToggleBtn" onclick="toggleViewMode()" title="Переключить вид" class="p-2.5 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-gray-600 dark:text-gray-300 transition-all">
+                        <i id="viewIcon" class="fa-solid fa-list-ul text-base"></i>
+                    </button>
+
+                    <!-- Кнопка темы -->
+                    <button id="themeToggleBtn" onclick="toggleTheme()" title="Переключить тему" class="p-2.5 rounded-xl bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 text-yellow-500 dark:text-yellow-400 transition-all">
+                        <i id="themeIcon" class="fa-solid fa-moon text-base"></i>
+                    </button>
+
+                    <!-- Кнопка добавления записи -->
+                    <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm shadow-md shadow-brand-500/20 transition-all active:scale-95">
+                        <i class="fa-solid fa-plus"></i>
+                        <span class="hidden sm:inline">Добавить день</span>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Мобильный поиск -->
+            <div class="pb-3 md:hidden">
+                <div class="relative w-full">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" id="mobileSearchInput" oninput="handleSearch(true)" placeholder="Поиск записей..." 
+                        class="w-full pl-10 pr-4 py-2 text-sm bg-gray-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-white">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Главный контейнер -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full flex flex-col gap-8">
+        
+        <!-- Секция Видеоплеера и подробной информации выбранного дня -->
+        <section id="featuredSection" class="bg-white dark:bg-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-xl border border-gray-100 dark:border-slate-700/50 backdrop-blur-sm transition-all duration-300">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Контейнер Плеера -->
+                <div class="lg:col-span-7 xl:col-span-8 flex flex-col">
+                    <div id="playerContainer" class="aspect-video-container bg-black shadow-inner">
+                        <!-- Сюда динамически вставляется плеер с постером -->
+                    </div>
+                </div>
+
+                <!-- Контейнер Информации -->
+                <div class="lg:col-span-5 xl:col-span-4 flex flex-col justify-between space-y-4">
+                    <div>
+                        <!-- Метаданные (День, Дата, Категория) -->
+                        <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                            <span id="activeDayBadge" class="px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                                День --
+                            </span>
+                            <span id="activeDate" class="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                                <i class="fa-regular fa-calendar"></i> --.--.----
+                            </span>
+                        </div>
+
+                        <!-- Заголовок -->
+                        <h2 id="activeTitle" class="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 line-clamp-2">
+                            Выберите запись из хроники
+                        </h2>
+
+                        <!-- Теги -->
+                        <div id="activeTags" class="flex flex-wrap gap-1.5 mb-4">
+                            <!-- Теги генерируются скриптом -->
+                        </div>
+
+                        <!-- Разделитель -->
+                        <hr class="border-gray-100 dark:border-slate-700 my-3">
+
+                        <!-- Тезисы / Заметки -->
+                        <div class="space-y-2">
+                            <h3 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Ключевые тезисы & Заметки</h3>
+                            <div id="activeDescription" class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed max-h-48 overflow-y-auto pr-1">
+                                Описание отсутствует.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Действия с текущим днем -->
+                    <div class="pt-4 border-t border-gray-100 dark:border-slate-700/50 flex items-center justify-between">
+                        <button onclick="shareActiveRecord()" class="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center gap-1.5 transition-colors">
+                            <i class="fa-solid fa-share-nodes"></i> Поделиться
+                        </button>
+                        <button id="deleteBtn" onclick="deleteActiveRecord()" class="text-xs font-medium text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center gap-1.5 transition-colors">
+                            <i class="fa-regular fa-trash-can"></i> Удалить запись
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Фильтры и Категории -->
+        <section class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-gray-200 dark:border-slate-800 pb-4">
+            <div>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Хроника публикаций</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Выберите день для просмотра видеоматериала</p>
+            </div>
+
+            <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-2 sm:pb-0" id="categoryFilters">
+                <!-- Кнопки категорий динамически -->
+            </div>
+        </section>
+
+        <!-- Основной список записей (Timeline или Grid) -->
+        <section id="contentContainer" class="w-full">
+            <!-- Вид Timeline (по умолчанию) -->
+            <div id="timelineView" class="relative pl-6 sm:pl-8 border-l-2 border-brand-500/30 dark:border-brand-500/20 space-y-6">
+                <!-- Динамически заполняется -->
+            </div>
+
+            <!-- Вид Grid (скрыт по умолчанию) -->
+            <div id="gridView" class="hidden grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <!-- Динамически заполняется -->
+            </div>
+
+            <!-- Заглушка при отсутствии данных -->
+            <div id="emptyState" class="hidden text-center py-16">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center text-gray-400 text-2xl">
+                    <i class="fa-solid fa-video-slash"></i>
+                </div>
+                <h4 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Записи не найдены</h4>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-sm mx-auto">Попробуйте изменить параметры поиска или добавьте новую видео-запись.</p>
+                <button onclick="resetFilters()" class="mt-4 px-4 py-2 text-xs font-medium bg-brand-500/10 text-brand-600 dark:text-brand-400 rounded-lg hover:bg-brand-500/20 transition-all">
+                    Сбросить фильтры
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Модальное окно добавления записи -->
+    <div id="addModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden transform scale-95 transition-transform duration-300" id="modalCard">
+            <!-- Шапка модалки -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50">
+                <h3 class="font-bold text-lg text-gray-900 dark:text-white flex items-center gap-2">
+                    <i class="fa-solid fa-film text-brand-500"></i> Новая видео-запись
+                </h3>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Форма -->
+            <form id="addRecordForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Номер дня</label>
+                        <input type="number" id="inputDay" required min="1" placeholder="например, 1" 
+                            class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Дата</label>
+                        <input type="date" id="inputDate" required 
+                            class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Заголовок темы</label>
+                    <input type="text" id="inputTitle" required placeholder="О чем это видео..." 
+                        class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Ссылка на видео (YouTube или Direct MP4)</label>
+                    <input type="url" id="inputVideoUrl" required placeholder="https://www.youtube.com/watch?v=..." 
+                        class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Категория</label>
+                        <select id="inputCategory" class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                            <option value="Обучение">Обучение</option>
+                            <option value="Влог">Влог</option>
+                            <option value="Проект">Проект</option>
+                            <option value="Конференция">Конференция</option>
+                            <option value="Разное">Разное</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Теги (через запятую)</label>
+                        <input type="text" id="inputTags" placeholder="code, javascript, UI" 
+                            class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">Конспект / Описание</label>
+                    <textarea id="inputDescription" rows="3" placeholder="Подробный конспект видео дня..." 
+                        class="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-brand-500 dark:text-white outline-none resize-none"></textarea>
+                </div>
+
+                <!-- Кнопки формы -->
+                <div class="flex items-center justify-end gap-3 pt-4">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-700">
+                        Отмена
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl text-sm font-medium bg-brand-600 hover:bg-brand-500 text-white shadow-md shadow-brand-500/20">
+                        Сохранить
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Уведомления Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white dark:bg-white dark:text-gray-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 border border-gray-700 dark:border-gray-200">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-brand-500"></i>
+        <span id="toastMessage" class="text-sm font-medium">Операция выполнена</span>
+    </div>
+
+    <!-- Футер -->
+    <footer class="border-t border-gray-200 dark:border-slate-800 py-6 mt-12 bg-white/50 dark:bg-slate-900/50">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-gray-500 dark:text-gray-400">
+            <p>© <span id="year"></span> VideoChronicle App. Интерактивная хроника с привязкой по дням.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Логика -->
+    <script>
+        // Демонстрационные данные по умолчанию
+        const initialRecords = [
+            {
+                id: 'rec-1',
+                day: 1,
+                date: '2026-11-01',
+                title: '1. Ghost theme. 01.11.2026.',
+                videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                category: 'Разное',
+                tags: ['mySite', 'url my site', 'all users program code base'],
+                description: 'Мой сайт с програмой програмировать всех пользователей база обьектов.'
+            }
+        ];
+
+        // Состояние приложения
+        let records = [];
+        let activeRecordId = null;
+        let selectedCategory = 'Все';
+        let currentSearchQuery = '';
+        let viewMode = 'timeline'; // 'timeline' или 'grid'
+
+        // Инициализация при загрузке страницы
+        window.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('year').textContent = new Date().getFullYear();
+            initTheme();
+            loadRecords();
+            renderCategoryFilters();
+            render();
+            
+            // Задать сегодняшнюю дату в инпуте формы
+            document.getElementById('inputDate').valueAsDate = new Date();
+        });
+
+        // Загрузка записей из localStorage или дефолтных
+        function loadRecords() {
+            const saved = localStorage.getItem('video_chronicle_records');
+            if (saved) {
+                try {
+                    records = JSON.parse(saved);
+                } catch (e) {
+                    records = [...initialRecords];
+                }
+            } else {
+                records = [...initialRecords];
+                saveRecords();
+            }
+
+            // Сортировка по дням (по убыванию/возрастанию)
+            records.sort((a, b) => Number(a.day) - Number(b.day));
+
+            if (records.length > 0) {
+                activeRecordId = records[0].id;
+            }
+        }
+
+        function saveRecords() {
+            localStorage.setItem('video_chronicle_records', JSON.stringify(records));
+        }
+
+        // Рендеринг интерфейса
+        function render() {
+            const filtered = getFilteredRecords();
+
+            // 1. Обновляем главный плеер
+            renderFeaturedPlayer();
+
+            // 2. Отображаем список в выбранном режиме
+            const timelineEl = document.getElementById('timelineView');
+            const gridEl = document.getElementById('gridView');
+            const emptyEl = document.getElementById('emptyState');
+
+            if (filtered.length === 0) {
+                timelineEl.classList.add('hidden');
+                gridEl.classList.add('hidden');
+                emptyEl.classList.remove('hidden');
+                return;
+            } else {
+                emptyEl.classList.add('hidden');
+            }
+
+            if (viewMode === 'timeline') {
+                timelineEl.classList.remove('hidden');
+                gridEl.classList.add('hidden');
+                renderTimeline(filtered);
+            } else {
+                gridEl.classList.remove('hidden');
+                timelineEl.classList.add('hidden');
+                renderGrid(filtered);
+            }
+        }
+
+        // Получение отфильтрованных данных
+        function getFilteredRecords() {
+            return records.filter(item => {
+                const matchesCategory = selectedCategory === 'Все' || item.category === selectedCategory;
+                const query = currentSearchQuery.toLowerCase();
+                const matchesSearch = !query || 
+                    item.title.toLowerCase().includes(query) ||
+                    item.description.toLowerCase().includes(query) ||
+                    item.day.toString().includes(query) ||
+                    item.tags.some(t => t.toLowerCase().includes(query));
+                
+                return matchesCategory && matchesSearch;
+            });
+        }
+
+        // Отрисовка активного плеера с фоновой картинкой-заставкой
+        function renderFeaturedPlayer() {
+            const activeItem = records.find(r => r.id === activeRecordId) || records[0];
+            const playerContainer = document.getElementById('playerContainer');
+            
+            if (!activeItem) {
+                playerContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500">Запись не выбрана</div>`;
+                document.getElementById('activeTitle').textContent = 'Записи отсутствуют';
+                document.getElementById('activeDayBadge').textContent = 'День --';
+                document.getElementById('activeDate').innerHTML = `<i class="fa-regular fa-calendar"></i> --.--.----`;
+                document.getElementById('activeTags').innerHTML = '';
+                document.getElementById('activeDescription').textContent = '';
+                document.getElementById('deleteBtn').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('deleteBtn').style.display = 'flex';
+            document.getElementById('activeDayBadge').textContent = `День ${activeItem.day}`;
+            document.getElementById('activeDate').innerHTML = `<i class="fa-regular fa-calendar"></i> ${formatDate(activeItem.date)}`;
+            document.getElementById('activeTitle').textContent = activeItem.title;
+            document.getElementById('activeDescription').textContent = activeItem.description;
+
+            // Рендер тегов
+            const tagsContainer = document.getElementById('activeTags');
+            tagsContainer.innerHTML = activeItem.tags.map(tag => 
+                `<span class="px-2.5 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-gray-300">#${tag}</span>`
+            ).join('');
+
+            // Визначаємо постер для відео
+            const youtubeId = extractYouTubeId(activeItem.videoUrl);
+            const posterUrl = youtubeId 
+                ? `https://drive.google.com/file/d/18LFAgbRuWOnGVylvl-HeMiaz4eC1JJkI/view?usp=sharing` 
+                : 'https://drive.google.com/file/d/18LFAgbRuWOnGVylvl-HeMiaz4eC1JJkI/view?usp=sharing';
+
+            // Формуємо HTML із фоновою картинкою-постером поверх плеера
+            playerContainer.innerHTML = `
+                <div id="videoPoster" class="video-poster" style="background-image: url('${posterUrl}');" onclick="playFeaturedVideo()">
+                    <div class="w-16 h-16 rounded-full bg-brand-600/90 text-white flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
+                        <i class="fa-solid fa-play text-xl ml-1"></i>
+                    </div>
+                </div>
+                <div id="realPlayerContent" class="w-full h-full"></div>
+            `;
+        }
+
+        // Функція, яка запускає відео по кліку на постер
+        function playFeaturedVideo() {
+            const activeItem = records.find(r => r.id === activeRecordId);
+            if (!activeItem) return;
+
+            const realPlayerContent = document.getElementById('realPlayerContent');
+            const youtubeId = extractYouTubeId(activeItem.videoUrl);
+
+            if (youtubeId) {
+                realPlayerContent.innerHTML = `
+                    <iframe src="https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0" 
+                        title="${escapeHtml(activeItem.title)}" 
+                        frameborder="0" 
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                        allowfullscreen>
+                    </iframe>`;
+            } else {
+                realPlayerContent.innerHTML = `
+                    <video controls autoplay class="w-full h-full object-cover">
+                        <source src="${activeItem.videoUrl}" type="video/mp4">
+                        Ваш браузер не поддерживает видео-тег.
+                    </video>`;
+            }
+
+            // Ховаємо постер з плавним ефектом
+            const poster = document.getElementById('videoPoster');
+            if (poster) {
+                poster.style.opacity = '0';
+                setTimeout(() => poster.remove(), 300);
+            }
+        }
+
+        // Рендер Timeline View
+        function renderTimeline(items) {
+            const container = document.getElementById('timelineView');
+            container.innerHTML = items.map(item => {
+                const isActive = item.id === activeRecordId;
+                return `
+                    <div class="relative group cursor-pointer" onclick="selectRecord('${item.id}')">
+                        <!-- Маркер на линии -->
+                        <div class="absolute -left-[31px] sm:-left-[39px] top-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${isActive ? 'bg-brand-500 ring-4 ring-brand-500/20' : 'bg-gray-300 dark:bg-slate-600 group-hover:bg-brand-400'} transition-all"></div>
+                        
+                        <!-- Карточка -->
+                        <div class="p-4 sm:p-5 rounded-2xl ${isActive ? 'bg-brand-50/50 dark:bg-slate-800/90 border-2 border-brand-500/50 shadow-md' : 'bg-white dark:bg-slate-800/40 border border-gray-100 dark:border-slate-700/60 hover:border-brand-300 dark:hover:border-slate-600'} transition-all duration-200">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-sm text-brand-600 dark:text-brand-400">День ${item.day}</span>
+                                    <span class="text-xs text-gray-400">•</span>
+                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">${formatDate(item.date)}</span>
+                                </div>
+                                <span class="self-start sm:self-auto px-2 py-0.5 rounded text-[10px] font-semibold tracking-wide uppercase bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300">
+                                    ${item.category}
+                                </span>
+                            </div>
+                            <h4 class="font-semibold text-base text-gray-900 dark:text-white mb-1 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                                ${escapeHtml(item.title)}
+                            </h4>
+                            <p class="text-xs text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">
+                                ${escapeHtml(item.description)}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Рендер Grid View
+        function renderGrid(items) {
+            const container = document.getElementById('gridView');
+            container.innerHTML = items.map(item => {
+                const isActive = item.id === activeRecordId;
+                const ytId = extractYouTubeId(item.videoUrl);
+                const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : 'https://placehold.co/600x400/1e293b/white?text=Video+Chronicle';
+
+                return `
+                    <div onclick="selectRecord('${item.id}')" class="group cursor-pointer bg-white dark:bg-slate-800 rounded-2xl overflow-hidden border ${isActive ? 'border-2 border-brand-500 ring-2 ring-brand-500/20 shadow-lg' : 'border-gray-100 dark:border-slate-700 hover:border-brand-300'} transition-all duration-300 flex flex-col">
+                        <div class="relative aspect-video bg-gray-900 overflow-hidden">
+                            <img src="${thumbUrl}" alt="${escapeHtml(item.title)}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                            <div class="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                <div class="w-10 h-10 rounded-full bg-brand-500/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                    <i class="fa-solid fa-play ml-0.5 text-sm"></i>
+                                </div>
+                            </div>
+                            <span class="absolute top-2 left-2 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-white text-xs font-bold">
+                                День ${item.day}
+                            </span>
+                        </div>
+                        <div class="p-4 flex-1 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center justify-between text-xs text-gray-400 mb-1.5">
+                                    <span>${formatDate(item.date)}</span>
+                                    <span class="text-brand-600 dark:text-brand-400 font-medium">${item.category}</span>
+                                </div>
+                                <h4 class="font-bold text-sm text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-brand-500 transition-colors">
+                                    ${escapeHtml(item.title)}
+                                </h4>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                                ${escapeHtml(item.description)}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Рендер фильтров категорий
+        function renderCategoryFilters() {
+            const categories = ['Все', 'Обучение', 'Влог', 'Проект', 'Конференция', 'Разное'];
+            const container = document.getElementById('categoryFilters');
+
+            container.innerHTML = categories.map(cat => `
+                <button onclick="setCategory('${cat}')" class="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${selectedCategory === cat ? 'bg-brand-600 text-white shadow-md shadow-brand-500/20' : 'bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700'}">
+                    ${cat}
+                </button>
+            `).join('');
+        }
+
+        // Переключение выбранной записи
+        function selectRecord(id) {
+            activeRecordId = id;
+            render();
+            if (window.innerWidth < 1024) {
+                document.getElementById('featuredSection').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Изменение категории
+        function setCategory(cat) {
+            selectedCategory = cat;
+            renderCategoryFilters();
+            render();
+        }
+
+        // Поиск
+        function handleSearch(isMobile = false) {
+            const val = isMobile ? document.getElementById('mobileSearchInput').value : document.getElementById('searchInput').value;
+            currentSearchQuery = val;
+            render();
+        }
+
+        function resetFilters() {
+            selectedCategory = 'Все';
+            currentSearchQuery = '';
+            document.getElementById('searchInput').value = '';
+            document.getElementById('mobileSearchInput').value = '';
+            renderCategoryFilters();
+            render();
+        }
+
+        // Переключение вида (Timeline/Grid)
+        function toggleViewMode() {
+            viewMode = viewMode === 'timeline' ? 'grid' : 'timeline';
+            const icon = document.getElementById('viewIcon');
+            icon.className = viewMode === 'timeline' ? 'fa-solid fa-list-ul text-base' : 'fa-solid fa-border-all text-base';
+            render();
+            showToast(`Режим отображения: ${viewMode === 'timeline' ? 'Таймлайн' : 'Сетка'}`);
+        }
+
+        // Модальное окно добавления
+        function openAddModal() {
+            const modal = document.getElementById('addModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.remove('pointer-events-none', 'opacity-0');
+            modal.classList.add('opacity-100');
+            card.classList.remove('scale-95');
+            card.classList.add('scale-100');
+        }
+
+        function closeAddModal() {
+            const modal = document.getElementById('addModal');
+            const card = document.getElementById('modalCard');
+            modal.classList.add('pointer-events-none', 'opacity-0');
+            modal.classList.remove('opacity-100');
+            card.classList.add('scale-95');
+            card.classList.remove('scale-100');
+            document.getElementById('addRecordForm').reset();
+        }
+
+        // Обработка отправки формы
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const day = parseInt(document.getElementById('inputDay').value);
+            const date = document.getElementById('inputDate').value;
+            const title = document.getElementById('inputTitle').value;
+            const videoUrl = document.getElementById('inputVideoUrl').value;
+            const category = document.getElementById('inputCategory').value;
+            const tagsRaw = document.getElementById('inputTags').value;
+            const description = document.getElementById('inputDescription').value;
+
+            const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : ['Дневник'];
+
+            const newRecord = {
+                id: 'rec-' + Date.now(),
+                day,
+                date,
+                title,
+                videoUrl,
+                category,
+                tags,
+                description
+            };
+
+            records.push(newRecord);
+            records.sort((a, b) => Number(a.day) - Number(b.day));
+            saveRecords();
+
+            activeRecordId = newRecord.id;
+            closeAddModal();
+            render();
+            showToast('Новый день успешно добавлен!');
+        }
+
+        // Удаление текущей записи
+        function deleteActiveRecord() {
+            if (!activeRecordId) return;
+
+            const activeItem = records.find(r => r.id === activeRecordId);
+            if (!activeItem) return;
+
+            if (confirm(`Вы уверены, что хотите удалить запись "День ${activeItem.day}"?`)) {
+                records = records.filter(r => r.id !== activeRecordId);
+                saveRecords();
+                activeRecordId = records.length > 0 ? records[0].id : null;
+                render();
+                showToast('Запись удалена');
+            }
+        }
+
+        // Функция поделиться
+        function shareActiveRecord() {
+            const activeItem = records.find(r => r.id === activeRecordId);
+            if (!activeItem) return;
+
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(window.location.href);
+                showToast('Ссылка скопирована в буфер обмена!');
+            } else {
+                showToast('Ссылка подготовлена');
+            }
+        }
+
+        // Вспомогательные функции
+        function extractYouTubeId(url) {
+            if (!url) return null;
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('ru-RU', options);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // Переключение Dark/Light темы
+        function initTheme() {
+            const isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-base';
+            } else {
+                document.documentElement.classList.remove('dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-moon text-base';
+            }
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                document.getElementById('themeIcon').className = 'fa-solid fa-moon text-base';
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                document.getElementById('themeIcon').className = 'fa-solid fa-sun text-base';
+            }
+        }
+
+        // Показ тоста
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
