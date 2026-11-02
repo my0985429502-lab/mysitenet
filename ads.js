@@ -11,6 +11,7 @@ const db = window.supabase.createClient(
 const form = document.getElementById("adForm");
 
 if (form) {
+    alert("Файл ads.js подключён к форме!");
     form.addEventListener("submit", async function(e) {
         e.preventDefault();
 
