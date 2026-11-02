@@ -11,9 +11,8 @@ const db = window.supabase.createClient(
 const form = document.getElementById("adForm");
 
 if (form) {
-    alert("Файл ads.js подключён к форме!");
     form.addEventListener("submit", async function(e) {
-        e.preventDefault();alert("Кнопка отправки работает!");
+        e.preventDefault();
 
         const message = document.getElementById("message");
         message.textContent = "Отправка заявки...";
