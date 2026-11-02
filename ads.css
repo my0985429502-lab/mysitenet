@@ -1,0 +1,85 @@
+body {
+background: #0f172a;
+color: white;
+font-family: Arial;
+margin: 0;
+padding: 20px;
+}
+
+.container {
+max-width: 550px;
+margin: 30px auto;
+background: #1e293b;
+padding: 25px;
+border-radius: 15px;
+}
+
+h1 {
+text-align: center;
+}
+
+label {
+display: block;
+margin-top: 15px;
+}
+
+input, textarea {
+box-sizing: border-box;
+width: 100%;
+padding: 12px;
+margin-top: 7px;
+border-radius: 7px;
+border: none;
+}
+
+textarea {
+min-height: 100px;
+}
+
+button {
+width: 100%;
+padding: 14px;
+margin-top: 20px;
+background: #2563eb;
+color: white;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+}
+
+a {
+color: #60a5fa;
+}
+
+.ad-card {
+    background: #334155;
+    padding: 18px;
+    margin: 15px 0;
+    border-radius: 12px;
+}
+
+.ad-card img {
+    max-width: 100%;
+    max-height: 220px;
+    object-fit: contain;
+    display: block;
+    margin: 12px auto;
+}
+
+.ad-card button {
+    width: auto;
+    margin: 5px;
+    padding: 10px 16px;
+}
+
+a {
+    color: #60a5fa;
+}
+
+button:hover {
+    opacity: 0.8;
+}
+
+[hidden] {
+    display: none !important;
+}
