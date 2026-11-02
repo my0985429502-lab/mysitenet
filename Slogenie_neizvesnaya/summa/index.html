@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Вычисление неизвестной X</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  max-width: 500px;
+  margin: 30px auto;
+  padding: 20px;
+  background: #f0f4f8;
+}
+.box {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+}
+input, button {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px;
+  margin-top: 12px;
+  font-size: 18px;
+}
+button {
+  background: #1769aa;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+}
+#result {
+  margin-top: 20px;
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+</style>
+</head>
+<body>
+<div class="box">
+  <h2>Найти неизвестную X</h2>
+  <p>Введи пример, например: x + 5 = 12</p>
+
+  <input id="equation" value="x + 5 = 12"
+         placeholder="Введите уравнение">
+
+  <button onclick="calculate()">Вычислить X</button>
+
+  <div id="result"></div>
+</div>
+
+<script>
+function calculate() {
+  const text = document.getElementById("equation").value
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/,/g, ".");
+
+  const result = document.getElementById("result");
+  const parts = text.split("=");
+
+  if (parts.length !== 2) {
+    result.textContent = "Введите уравнение с одним знаком =";
+    return;
+  }
+
+  // Поддерживается сложение: x + a = b, a + x = b
+  const pattern = /^([+-]?(?:\d*\.?\d+)?x|[+-]?\d*\.?\d+)(?:\+([+-]?(?:\d*\.?\d+)?x|[+-]?\d*\.?\d+))?$/;
+
+  function parseSide(s) {
+    let terms = s.match(/[+-]?[^+-]+/g);
+    if (!terms) throw Error("Неверное выражение");
+
+    let a = 0, b = 0;
+
+    for (let term of terms) {
+      if (term.includes("x")) {
+        let k = term.replace("x", "");
+        if (k === "" || k === "+") k = "1";
+        if (k === "-") k = "-1";
+        a += Number(k);
+      } else {
+        b += Number(term);
+      }
+    }
+    return [a, b];
+  }
+
+  try {
+    if (!/^[0-9.x+\-=]+$/.test(text) ||
+        (text.match(/x/g) || []).length === 0) {
+      throw Error("Используйте числа, x, + и =");
+    }
+
+    const [a1, b1] = parseSide(parts[0]);
+    const [a2, b2] = parseSide(parts[1]);
+
+    const coefficient = a1 - a2;
+    const constant = b2 - b1;
+
+    if (coefficient === 0) {
+      result.textContent = constant === 0
+        ? "Бесконечно много решений"
+        : "Решений нет";
+      return;
+    }
+
+    const x = constant / coefficient;
+    result.innerHTML =
+      "Ответ: <b>x = " +
+      (Number.isInteger(x) ? x : Number(x.toFixed(8))) +
+      "</b>";
+  } catch (e) {
+    result.textContent = "Ошибка: проверь введённое уравнение.";
+  }
+}
+</script>
+</body>
+</html>
