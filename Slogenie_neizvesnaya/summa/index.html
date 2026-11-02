@@ -8,7 +8,6 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  max-width: 500px;
   margin: 30px auto;
   padding: 20px;
   background: #f0f4f8;
@@ -37,6 +36,49 @@ button {
   overflow-wrap: anywhere;
 }
 </style>
+<style>
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      text-align: left;
+      min-width: 280px;
+      border: 1px solid #334155;
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .counter-display {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn-reset {
+      background: #334155;
+      color: #94a3b8;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-reset:hover {
+      background: #ef4444;
+      color: #ffffff;
+    }
+</style>
 </head>
 <body>
 <div class="box">
@@ -50,7 +92,37 @@ button {
 
   <div id="result"></div>
 </div>
+    <p hidden>https://www.profitableratecpmnetwork.com/bhegzsxbb?key=02c6255b2dd35b42bb3fdf8f3629d35a</p>
+<script async="async" data-cfasync="false" src="https://bauval.org/21/b347a6c5d3121448a2b5efbaeb7dfbd5"></script>
+<div id="container-b347a6c5d3121448a2b5efbaeb7dfbd5"></div>
+<script src="https://pl32152869.profitableratecpmnetwork.com/29/f4/31/29f431a168f118de9843e3c656806337.js"></script>
+<script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
+<div class="card" width="15%">
+    <h2>Просмотры страницы</h2>
+    <div id="visit-count" class="counter-display">0</div>
+</div>
+<script>
+    // 1. Получаем элементы со страницы
+    const counterDisplay = document.getElementById('visit-count');
+    const resetButton = document.getElementById('reset-btn');
 
+    // 2. Считываем сохраненное количество посещений
+    let visits = localStorage.getItem('page_visit_count');
+
+    // Если сохраненного значения нет — инициализируем нулем
+    if (visits === null) {
+      visits = 0;
+    }
+
+    // 3. Увеличиваем на 1 текущий визит
+    visits = parseInt(visits) + 1;
+
+    // 4. Сохраняем новое значение обратно в localStorage
+    localStorage.setItem('page_visit_count', visits);
+
+    // 5. Выводим значение на страницу
+    counterDisplay.textContent = visits;
+</script>
 <script>
 function calculate() {
   const text = document.getElementById("equation").value
