@@ -160,7 +160,7 @@
 <br>
 <a href="Slogenie_neizvesnaya/index.html"><h3>Сложение, вичитание, деление, умножение неизвесная посчитать страница.</h3></a>
 <br><hr>
-<div id="reklama" class="reklama-window">
+<div id="reklama" class="reklama-window" hidden>
     <a id="adLink" href="#" target="_blank">
         <img id="adBanner" src="" alt="Реклама">
     </a>
@@ -220,7 +220,37 @@
 
     countVisits();
 
-  </script>
+</script>
+<script>
+const db = window.supabase.createClient(
+    "https://blmpavrvdesudcvqjhlz.supabase.co",
+    "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN"
+);
+
+async function loadAdvertisement() {
+    const { data, error } = await db
+        .from("ads")
+        .select("image_path, target_url")
+        .eq("status", "approved")
+        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+    if (error || !data || data.length === 0) return;
+
+    const ad = data[0];
+
+    const { data: image } = db.storage
+        .from("ads-banners")
+        .getPublicUrl(ad.image_path);
+
+    document.getElementById("adBanner").src = image.publicUrl;
+    document.getElementById("adLink").href = ad.target_url;
+    document.getElementById("reklama").hidden = false;
+}
+
+loadAdvertisement();
+</script>
 <script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
 </body>
 </html>
