@@ -120,64 +120,81 @@ async function save(){
 }
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,350)}
 async function connect(url, key) {
-    $("dbStatus").textContent = "Подключение к базе...";
-
     if (!window.supabase) {
-        throw new Error("Библиотека Supabase не загружена");
+        throw new Error("Библиотека Supabase не загрузилась");
     }
 
     supabase = window.supabase.createClient(url, key, {
         auth: {
             persistSession: true,
-            autoRefreshToken: true
+            autoRefreshToken: true,
+            detectSessionInUrl: true
         }
     });
 
-    let result = await supabase.auth.getSession();
+    const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
 
-    if (result.error) throw result.error;
+    if (sessionError) throw sessionError;
 
-    if (result.data.session) {
-        user = result.data.session.user;
+    if (sessionData.session) {
+        user = sessionData.session.user;
     } else {
-        result = await supabase.auth.signInAnonymously();
-        if (result.error) throw result.error;
-        user = result.data.user;
+        const { data, error } =
+            await supabase.auth.signInAnonymously();
+
+        if (error) throw error;
+        user = data.user;
     }
 
-    if (!user) throw new Error("Анонимный ID не создан");
+    if (!user) {
+        throw new Error("Анонимный ID не создан");
+    }
 
-    // Показываем ID сразу
+    // СРАЗУ показываем ID
     $("userId").textContent = user.id;
-
-    const profile = await supabase
-        .from("anonymous_users")
-        .upsert({
-            id: user.id,
-            last_seen_at: new Date().toISOString()
-        });
-
-    if (profile.error) throw profile.error;
-
-    const saved = await supabase
-        .from("pets")
-        .select("state")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-    if (saved.error) throw saved.error;
-
-    if (saved.data && saved.data.state) {
-        pet = { ...defaultPet(), ...saved.data.state };
-    }
-
+    $("dbStatus").textContent = "Анонимный ID создан";
     $("setup").style.display = "none";
-    tick();
-    render();
-    await save();
 
-    $("dbStatus").textContent =
-        "Анонимный игрок подключён. Сохранение работает.";
+    try {
+        const { error: profileError } =
+            await supabase.from("anonymous_users").upsert({
+                id: user.id,
+                last_seen_at: new Date().toISOString()
+            });
+
+        if (profileError) throw profileError;
+
+        const { data: row, error: petError } =
+            await supabase.from("pets")
+                .select("state")
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+        if (petError) throw petError;
+
+        if (row && row.state) {
+            pet = { ...defaultPet(), ...row.state };
+        }
+
+        tick();
+        render();
+        await save();
+
+        $("dbStatus").textContent =
+            "Онлайн-база подключена • ID сохранён";
+
+    } catch (e) {
+        localStorage.setItem(
+            "tamagotchi_pet_v1",
+            JSON.stringify(pet)
+        );
+
+        $("dbStatus").textContent =
+            "ID создан, ошибка базы: " + e.message;
+
+        render();
+    }
 }
 document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",async()=>{
  const a=b.dataset.action; let msg="";
