@@ -89,9 +89,50 @@ input{
     margin:8px 0;
 }
 </style>
+<style>
+    .card {
+      background: #1e293b;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      text-align: center;
+      min-width: 280px;
+      border: 1px solid #334155;
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .counter-display {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: #38bdf8;
+      margin-bottom: 1.5rem;
+      text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    }
+</style>
+<script src="https://pl32152869.profitableratecpmnetwork.com/29/f4/31/29f431a168f118de9843e3c656806337.js"></script>
 </head>
 
 <body>
+<script async="async" data-cfasync="false" src="https://bauval.org/21/b347a6c5d3121448a2b5efbaeb7dfbd5"></script>
+<div id="container-b347a6c5d3121448a2b5efbaeb7dfbd5"></div>
+
+<div align="center">
+<script>
+  atOptions = {
+    'key' : 'd5fdcd51e979da49e5e7087074f90ab0',
+    'format' : 'iframe',
+    'height' : 90,
+    'width' : 728,
+    'params' : {}
+  };
+</script>
 <div class="container">
 
 <h1>🛸 UFO–StarCraft</h1>
@@ -177,9 +218,62 @@ input{
 </div>
 
 </div>
-
+<div class="card">
+    <h2>Просмотры страницы</h2>
+    <div id="visit-count" class="counter-display">0</div>
+</div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
 
+    // Подключение к Supabase
+
+    const SUPABASE_URL = 'https://blmpavrvdesudcvqjhlz.supabase.co';
+
+    const SUPABASE_KEY = 'sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN';
+
+    const db = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
+
+    // Получаем элемент счётчика
+
+    const counterDisplay = document.getElementById('visit-count');
+
+    // Увеличиваем счётчик в базе данных
+
+    async function countVisits() {
+
+      try {
+
+        const { data, error } = await db.rpc(
+          'increment_page_visits'
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        // Показываем общее количество посещений
+
+        counterDisplay.textContent =
+          Number(data).toLocaleString('ru-RU');
+
+      } catch (error) {
+
+        console.error('Ошибка счётчика:', error);
+
+        counterDisplay.textContent = 'Ошибка';
+
+      }
+
+    }
+
+    // Запуск счётчика
+
+    countVisits();
+
+</script>
 <script>
 const KEY = "ufo_starcraft_pet_v1";
 
@@ -817,5 +911,6 @@ async function importBackup(){
     }
 }
 </script>
+<script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
 </body>
 </html>
