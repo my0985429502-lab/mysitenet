@@ -80,6 +80,9 @@ input{background:#0f172a;border:1px solid #475569;border-radius:10px;color:white
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+window.onerror = function(message, source, line, column) {
+    alert("Ошибка JavaScript: " + message + "\nСтрока: " + line);
+};
 const $ = id => document.getElementById(id);
 const defaultPet = () => ({name:"Пушистик",hunger:82,health:100,energy:85,happiness:80,clean:90,createdAt:Date.now(),lastTick:Date.now(),history:["Питомец появился в мире!"]});
 let pet = defaultPet(), supabase = null, user = null, saveTimer = null;
