@@ -4,12 +4,28 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+
     .card {
       background: #1e293b;
       padding: 2rem;
       border-radius: 16px;
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      text-align: left;
+      text-align: center;
       min-width: 280px;
       border: 1px solid #334155;
     }
@@ -28,22 +44,6 @@
       color: #38bdf8;
       margin-bottom: 1.5rem;
       text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
-    }
-
-    .btn-reset {
-      background: #334155;
-      color: #94a3b8;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-    }
-
-    .btn-reset:hover {
-      background: #ef4444;
-      color: #ffffff;
     }
 </style>
 <style>
@@ -181,10 +181,10 @@
         <img id="adBanner" src="" alt="Реклама">
     </a>
 </div>
-<div class="card" width="15%">
+  <div class="card">
     <h2>Просмотры страницы</h2>
     <div id="visit-count" class="counter-display">0</div>
-</div>
+  </div>
 <script>
     // 1. Получаем элементы со страницы
     const counterDisplay = document.getElementById('visit-count');
@@ -209,35 +209,56 @@
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const db = window.supabase.createClient(
-    "https://blmpavrvdesudcvqjhlz.supabase.co",
-    "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN"
-);
 
-async function loadAdvertisement() {
-    const { data, error } = await db
-        .from("ads")
-        .select("image_path, target_url")
-        .eq("status", "approved")
-        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1);
+    // Подключение к Supabase
 
-    if (error || !data || data.length === 0) return;
+    const SUPABASE_URL = 'https://blmpavrvdesudcvqjhlz.supabase.co';
 
-    const ad = data[0];
+    const SUPABASE_KEY = 'sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN';
 
-    const { data: image } = db.storage
-        .from("ads-banners")
-        .getPublicUrl(ad.image_path);
+    const db = window.supabase.createClient(
+      SUPABASE_URL,
+      SUPABASE_KEY
+    );
 
-    document.getElementById("adBanner").src = image.publicUrl;
-    document.getElementById("adLink").href = ad.target_url;
-    document.getElementById("reklama").hidden = false;
-}
+    // Получаем элемент счётчика
 
-loadAdvertisement();
-</script>
+    const counterDisplay = document.getElementById('visit-count');
+
+    // Увеличиваем счётчик в базе данных
+
+    async function countVisits() {
+
+      try {
+
+        const { data, error } = await db.rpc(
+          'increment_page_visits'
+        );
+
+        if (error) {
+          throw error;
+        }
+
+        // Показываем общее количество посещений
+
+        counterDisplay.textContent =
+          Number(data).toLocaleString('ru-RU');
+
+      } catch (error) {
+
+        console.error('Ошибка счётчика:', error);
+
+        counterDisplay.textContent = 'Ошибка';
+
+      }
+
+    }
+
+    // Запуск счётчика
+
+    countVisits();
+
+  </script>
 <script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
 </body>
 </html>
