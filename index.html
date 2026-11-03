@@ -169,28 +169,6 @@
     <h2>Просмотры страницы</h2>
     <div id="visit-count" class="counter-display">0</div>
   </div>
-<script>
-    // 1. Получаем элементы со страницы
-    const counterDisplay = document.getElementById('visit-count');
-    const resetButton = document.getElementById('reset-btn');
-
-    // 2. Считываем сохраненное количество посещений
-    let visits = localStorage.getItem('page_visit_count');
-
-    // Если сохраненного значения нет — инициализируем нулем
-    if (visits === null) {
-      visits = 0;
-    }
-
-    // 3. Увеличиваем на 1 текущий визит
-    visits = parseInt(visits) + 1;
-
-    // 4. Сохраняем новое значение обратно в localStorage
-    localStorage.setItem('page_visit_count', visits);
-
-    // 5. Выводим значение на страницу
-    counterDisplay.textContent = visits;
-</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 
