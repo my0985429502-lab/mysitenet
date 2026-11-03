@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UFO-StarCraft — Тамагочи</title>
+
+<style>
+*{box-sizing:border-box}
+body{
+    margin:0;
+    padding:15px;
+    background:#07111f;
+    color:#e2e8f0;
+    font-family:Arial,sans-serif;
+}
+.container{max-width:650px;margin:auto}
+h1{text-align:center;color:#38bdf8}
+.subtitle{text-align:center;color:#94a3b8}
+.card{
+    background:#1e293b;
+    padding:20px;
+    border-radius:16px;
+    border:1px solid #334155;
+    box-shadow:0 10px 25px rgba(0,0,0,.4);
+    margin:15px 0;
+}
+.pet{
+    text-align:center;
+    padding:20px;
+    background:#0f172a;
+    border-radius:14px;
+}
+.pet-icon{font-size:90px}
+.stage{color:#38bdf8;font-size:22px;font-weight:bold}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.stat{
+    background:#0f172a;
+    padding:12px;
+    border-radius:10px;
+}
+.stat-name{font-size:13px;color:#94a3b8}
+.bar{
+    height:10px;
+    background:#334155;
+    border-radius:10px;
+    margin-top:7px;
+    overflow:hidden;
+}
+.fill{
+    height:100%;
+    background:#22c55e;
+    width:50%;
+    transition:width .3s;
+}
+.buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+}
+button{
+    padding:13px 8px;
+    border:0;
+    border-radius:10px;
+    background:#0369a1;
+    color:white;
+    font-size:15px;
+    cursor:pointer;
+}
+button:active{transform:scale(.97)}
+button:hover{background:#0284c7}
+.reset{background:#991b1b}
+.log{
+    background:#0f172a;
+    padding:12px;
+    border-radius:10px;
+    height:130px;
+    overflow:auto;
+    font-size:13px;
+}
+.small{color:#94a3b8;font-size:12px}
+input{
+    width:100%;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #475569;
+    background:#0f172a;
+    color:white;
+    margin:8px 0;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h1>🛸 UFO–StarCraft</h1>
+<p class="subtitle">Инопланетный тамагочи — эксперимент №001</p>
+
+<div class="card">
+    <div class="pet">
+        <div class="pet-icon" id="petIcon">🥚</div>
+        <div class="stage" id="stageName">Космическое яйцо</div>
+        <p id="petDescription">Внутри яйца зарождается неизвестная форма жизни.</p>
+        <p>Возраст: <b id="age">0</b> дней</p>
+        <p>Развитие: <b id="growth">0</b>%</p>
+    </div>
+
+    <label>Имя организма:</label>
+    <input id="petName" maxlength="25" placeholder="Назови своего питомца">
+    <button onclick="saveName()" style="width:100%">Сохранить имя</button>
+</div>
+
+<div class="card">
+<h3>🧬 Биологические характеристики</h3>
+<div class="stats" id="stats"></div>
+</div>
+
+<div class="card">
+<h3>🔬 Лаборатория ухода</h3>
+<div class="buttons">
+<button onclick="action('water')">💧 Полить</button>
+<button onclick="action('food')">🌿 Питание</button>
+<button onclick="action('train')">💪 Тренировка</button>
+<button onclick="action('sleep')">🌙 Сон</button>
+<button onclick="action('clean')">🧽 Очистить</button>
+<button onclick="action('scan')">📡 Сканировать</button>
+</div>
+</div>
+
+<div class="card">
+<h3>🚀 Эволюция</h3>
+<p id="evolutionText">Организм пока находится в яйце.</p>
+<button onclick="evolve()" style="width:100%">🧬 Проверить эволюцию</button>
+</div>
+
+<div class="card">
+<h3>📋 Журнал эксперимента</h3>
+<div class="log" id="log"></div>
+</div>
+
+<div class="card">
+<h3>💾 Сохранение</h3>
+<p class="small">Питомец автоматически сохраняется в браузере на этом устройстве.</p>
+<button onclick="saveGame()" style="width:100%">Сохранить игру</button>
+<button class="reset" onclick="resetGame()" style="width:100%;margin-top:10px">Начать нового питомца</button>
+<p class="small">ID организма: <span id="playerId"></span></p>
+</div>
+
+</div>
+
+<script>
+const KEY="ufo_starcraft_pet_v1";
+
+function newPet(){
+    return {
+        id:"UFO-"+Math.random().toString(36).substring(2,10).toUpperCase(),
+        name:"Организм №001",
+        stage:0,
+        age:0,
+        growth:0,
+        hunger:80,
+        health:100,
+        energy:100,
+        happiness:80,
+        water:80,
+        strength:0,
+        log:["Эксперимент начат. Обнаружено космическое яйцо."]
+    };
+}
+
+let pet;
+try{
+    pet=JSON.parse(localStorage.getItem(KEY))||newPet();
+}catch(e){
+    pet=newPet();
+}
+
+const stages=[
+    {
+        name:"Космическое яйцо",
+        icon:"🥚",
+        description:"Внутри яйца зарождается неизвестная форма жизни."
+    },
+    {
+        name:"Инопланетное растение",
+        icon:"🌱",
+        description:"Появились корни и листья. Организм начал расти."
+    },
+    {
+        name:"Биологическая мышца",
+        icon:"💪",
+        description:"Организм формирует мышечные ткани и становится сильнее."
+    },
+    {
+        name:"UFO-организм",
+        icon:"👽",
+        description:"Развилась новая инопланетная форма жизни!"
+    }
+];
+
+const statInfo=[
+    ["hunger","Питание"],
+    ["health","Здоровье"],
+    ["energy","Энергия"],
+    ["happiness","Настроение"],
+    ["water","Вода"],
+    ["strength","Сила"]
+];
+
+function clamp(v){
+    return Math.max(0,Math.min(100,v));
+}
+
+function saveGame(){
+    localStorage.setItem(KEY,JSON.stringify(pet));
+    log("Игра сохранена.");
+    render();
+}
+
+function log(text){
+    pet.log.unshift(new Date().toLocaleTimeString()+" — "+text);
+    pet.log=pet.log.slice(0,40);
+    document.getElementById("log").innerHTML=
+        pet.log.map(x=>"<div>"+escapeHTML(x)+"</div>").join("");
+}
+
+function escapeHTML(text){
+    return String(text).replace(/[&<>"']/g,c=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;",
+        '"':"&quot;","'":"&#39;"
+    }[c]));
+}
+
+function saveName(){
+    let value=document.getElementById("petName").value.trim();
+    if(value){
+        pet.name=value;
+        log("Организм получил имя: "+value);
+        saveGame();
+    }
+}
+
+function action(type){
+    if(pet.health<=0){
+        alert("Организм нуждается в восстановлении!");
+        return;
+    }
+
+    if(type==="water"){
+        pet.water=clamp(pet.water+25);
+        pet.health=clamp(pet.health+3);
+        log("Организм получил воду.");
+    }
+
+    if(type==="food"){
+        pet.hunger=clamp(pet.hunger+25);
+        pet.growth=clamp(pet.growth+3);
+        log("Организм получил питательные вещества.");
+    }
+
+    if(type==="train"){
+        if(pet.energy<15){
+            alert("Недостаточно энергии для тренировки.");
+            return;
+        }
+        pet.energy=clamp(pet.energy-15);
+        pet.strength=clamp(pet.strength+12);
+        pet.growth=clamp(pet.growth+5);
+        log("Мышечные ткани получили нагрузку.");
+    }
+
+    if(type==="sleep"){
+        pet.energy=clamp(pet.energy+30);
+        pet.health=clamp(pet.health+5);
+        log("Организм отдыхает.");
+    }
+
+    if(type==="clean"){
+        pet.health=clamp(pet.health+5);
+        pet.happiness=clamp(pet.happiness+5);
+        log("Организм очищен.");
+    }
+
+    if(type==="scan"){
+        log("Сканирование: стадия "+stages[pet.stage].name+
+            ", сила "+pet.strength+"%, развитие "+pet.growth+"%.");
+    }
+
+    evolveCheck();
+    saveGame();
+}
+
+function evolveCheck(){
+    if(pet.stage===0 && pet.growth>=30){
+        pet.stage=1;
+        log("ЭВОЛЮЦИЯ! Из яйца появился росток.");
+    }
+    if(pet.stage===1 && pet.growth>=65){
+        pet.stage=2;
+        log("ЭВОЛЮЦИЯ! Началось формирование мышечной ткани.");
+    }
+    if(pet.stage===2 && pet.growth>=100){
+        pet.stage=3;
+        log("ЭВОЛЮЦИЯ! Получен новый UFO-организм.");
+    }
+}
+
+function evolve(){
+    if(pet.stage===3){
+        alert("Достигнута последняя доступная стадия!");
+        return;
+    }
+    if(pet.growth<30 && pet.stage===0){
+        alert("Яйцу нужно больше энергии и питания.");
+        return;
+    }
+    if(pet.growth<65 && pet.stage===1){
+        alert("Растению нужно продолжать развиваться.");
+        return;
+    }
+    if(pet.growth<100 && pet.stage===2){
+        alert("Мышечная форма ещё развивается.");
+        return;
+    }
+    evolveCheck();
+    saveGame();
+}
+
+function render(){
+    let s=stages[pet.stage];
+    document.getElementById("petIcon").textContent=s.icon;
+    document.getElementById("stageName").textContent=s.name;
+    document.getElementById("petDescription").textContent=s.description;
+    document.getElementById("age").textContent=pet.age;
+    document.getElementById("growth").textContent=pet.growth;
+    document.getElementById("petName").value=pet.name;
+    document.getElementById("playerId").textContent=pet.id;
+
+    document.getElementById("stats").innerHTML=
+        statInfo.map(([key,name])=>`
+        <div class="stat">
+            <div class="stat-name">${name}: ${pet[key]}%</div>
+            <div class="bar">
+                <div class="fill" style="width:${pet[key]}%"></div>
+            </div>
+        </div>`).join("");
+
+    document.getElementById("evolutionText").textContent=
+        pet.stage===0?"Яйцо готовится к появлению растения.":
+        pet.stage===1?"Растение формирует будущие ткани.":
+        pet.stage===2?"Мышечная форма готовится к превращению.":
+        "Новый инопланетный организм создан.";
+
+    document.getElementById("log").innerHTML=
+        pet.log.map(x=>"<div>"+escapeHTML(x)+"</div>").join("");
+}
+
+function resetGame(){
+    if(!confirm("Удалить текущего питомца и начать новый эксперимент?"))return;
+    pet=newPet();
+    saveGame();
+    render();
+}
+
+function dailyUpdate(){
+    pet.age++;
+    pet.hunger=clamp(pet.hunger-5);
+    pet.water=clamp(pet.water-5);
+    pet.energy=clamp(pet.energy-3);
+
+    if(pet.hunger===0 || pet.water===0){
+        pet.health=clamp(pet.health-10);
+    }
+    if(pet.energy===0){
+        pet.happiness=clamp(pet.happiness-5);
+    }
+    log("Прошёл новый день эксперимента.");
+    saveGame();
+}
+
+render();
+
+// Игровой день примерно раз в 24 часа
+let lastDay=Number(localStorage.getItem(KEY+"_day")||0);
+if(Date.now()-lastDay>=86400000){
+    dailyUpdate();
+    localStorage.setItem(KEY+"_day",String(Date.now()));
+}
+</script>
+</body>
+</html>
