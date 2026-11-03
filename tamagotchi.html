@@ -119,23 +119,65 @@ async function save(){
  return true;
 }
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(save,350)}
-async function connect(url,key){
- if(!window.supabase){alert("Не удалось загрузить библиотеку Supabase. Проверь интернет.");return}
- supabase=window.supabase.createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
- const {data:sessionData,error:sessionError}=await supabase.auth.getSession();
- if(sessionError)throw sessionError;
- if(sessionData.session)user=sessionData.session.user;
- else {const {data,error}=await supabase.auth.signInAnonymously();if(error)throw error;user=data.user}
- if(!user)throw new Error("Не удалось создать анонимного пользователя");
- const {error:profileError}=await supabase.from("anonymous_users").upsert({id:user.id,last_seen_at:new Date().toISOString()},{onConflict:"id"});
- if(profileError)throw profileError;
- const {data:row,error:petError}=await supabase.from("pets").select("state").eq("user_id",user.id).maybeSingle();
- if(petError)throw petError;
- if(row&&row.state)pet={...defaultPet(),...row.state};
- else {const local=localStorage.getItem("tamagotchi_pet_v1");if(local){try{pet={...defaultPet(),...JSON.parse(local)}}catch{}}await save()}
- $("userId").textContent=user.id;
- $("dbStatus").textContent="Онлайн-база подключена • анонимный профиль сохранён";
- $("setup").style.display="none";tick();render();await save();
+async function connect(url, key) {
+    $("dbStatus").textContent = "Подключение к базе...";
+
+    if (!window.supabase) {
+        throw new Error("Библиотека Supabase не загружена");
+    }
+
+    supabase = window.supabase.createClient(url, key, {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true
+        }
+    });
+
+    let result = await supabase.auth.getSession();
+
+    if (result.error) throw result.error;
+
+    if (result.data.session) {
+        user = result.data.session.user;
+    } else {
+        result = await supabase.auth.signInAnonymously();
+        if (result.error) throw result.error;
+        user = result.data.user;
+    }
+
+    if (!user) throw new Error("Анонимный ID не создан");
+
+    // Показываем ID сразу
+    $("userId").textContent = user.id;
+
+    const profile = await supabase
+        .from("anonymous_users")
+        .upsert({
+            id: user.id,
+            last_seen_at: new Date().toISOString()
+        });
+
+    if (profile.error) throw profile.error;
+
+    const saved = await supabase
+        .from("pets")
+        .select("state")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (saved.error) throw saved.error;
+
+    if (saved.data && saved.data.state) {
+        pet = { ...defaultPet(), ...saved.data.state };
+    }
+
+    $("setup").style.display = "none";
+    tick();
+    render();
+    await save();
+
+    $("dbStatus").textContent =
+        "Анонимный игрок подключён. Сохранение работает.";
 }
 document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click",async()=>{
  const a=b.dataset.action; let msg="";
@@ -147,28 +189,39 @@ document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click"
  if(a==="medicine"){pet.health=clamp(pet.health+30);msg="Питомец получил лечение."}
  addHistory(msg);$("message").textContent=msg;render();await save();
 }));
-$("nameBtn").addEventListener("click", async () => {
-    const input = $("nameInput");
-    const name = input.value.trim();
+$("nameBtn").onclick = async function() {
+    const name = $("nameInput").value.trim();
 
     if (!name) {
-        $("message").textContent = "Введи имя питомца!";
+        $("message").textContent = "Введи имя!";
         return;
     }
 
     pet.name = name.slice(0, 24);
 
-    addHistory("Новое имя питомца: " + pet.name);
+    addHistory("Питомца назвали: " + pet.name);
 
-    input.value = "";
+    $("nameInput").value = "";
 
     render();
 
     $("message").textContent =
-        "Питомца зовут " + pet.name + "!";
+        "Новое имя: " + pet.name;
 
-    await save();
-});
+    // Сначала сохраняем локально
+    localStorage.setItem(
+        "tamagotchi_pet_v1",
+        JSON.stringify(pet)
+    );
+
+    // Затем пытаемся сохранить онлайн
+    try {
+        await save();
+    } catch (error) {
+        $("dbStatus").textContent =
+            "Локально сохранено. Ошибка базы: " + error.message;
+    }
+};
 $("saveBtn").onclick=async()=>{await save();$("message").textContent="Сохранение выполнено."};
 $("connectBtn").onclick=async()=>{try{const u=$("supabaseUrl").value.trim(),k=$("supabaseKey").value.trim();if(!u||!k)throw new Error("Введи URL и anon public key");localStorage.setItem("tamagotchi_supabase_url",u);localStorage.setItem("tamagotchi_supabase_key",k);await connect(u,k)}catch(e){$("dbStatus").textContent="Не удалось подключиться: "+e.message;alert(e.message)}};
 $("copyIdBtn").onclick=()=>{if(user?.id)navigator.clipboard?.writeText(user.id);else alert("Сначала подключи онлайн-базу.")};
