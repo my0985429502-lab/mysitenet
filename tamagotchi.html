@@ -147,7 +147,28 @@ document.querySelectorAll("[data-action]").forEach(b=>b.addEventListener("click"
  if(a==="medicine"){pet.health=clamp(pet.health+30);msg="Питомец получил лечение."}
  addHistory(msg);$("message").textContent=msg;render();await save();
 }));
-$("nameBtn").onclick=async()=>{const n=$("nameInput").value.trim();if(!n)return;pet.name=n.slice(0,24);addHistory("Питомца назвали: "+pet.name);$("nameInput").value="";render();await save()};
+$("nameBtn").addEventListener("click", async () => {
+    const input = $("nameInput");
+    const name = input.value.trim();
+
+    if (!name) {
+        $("message").textContent = "Введи имя питомца!";
+        return;
+    }
+
+    pet.name = name.slice(0, 24);
+
+    addHistory("Новое имя питомца: " + pet.name);
+
+    input.value = "";
+
+    render();
+
+    $("message").textContent =
+        "Питомца зовут " + pet.name + "!";
+
+    await save();
+});
 $("saveBtn").onclick=async()=>{await save();$("message").textContent="Сохранение выполнено."};
 $("connectBtn").onclick=async()=>{try{const u=$("supabaseUrl").value.trim(),k=$("supabaseKey").value.trim();if(!u||!k)throw new Error("Введи URL и anon public key");localStorage.setItem("tamagotchi_supabase_url",u);localStorage.setItem("tamagotchi_supabase_key",k);await connect(u,k)}catch(e){$("dbStatus").textContent="Не удалось подключиться: "+e.message;alert(e.message)}};
 $("copyIdBtn").onclick=()=>{if(user?.id)navigator.clipboard?.writeText(user.id);else alert("Сначала подключи онлайн-базу.")};
