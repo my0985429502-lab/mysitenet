@@ -160,9 +160,14 @@
 <br>
 <a href="Slogenie_neizvesnaya/index.html"><h3>Сложение, вичитание, деление, умножение неизвесная посчитать страница.</h3></a>
 <br><hr>
-<div id="reklama" class="reklama-window" hidden>
-    <a id="adLink" href="#" target="_blank">
-        <img id="adBanner" src="" alt="Реклама">
+<div id="reklama" style="width:100%; margin:15px 0; text-align:center;">
+    <p id="adStatus" style="color:red;">Загрузка рекламы...</p>
+
+    <a id="adLink" href="#" target="_blank" style="display:none;">
+        <img id="adBanner"
+             src=""
+             alt="Реклама"
+             style="width:100%; height:180px; object-fit:contain;">
     </a>
 </div>
 <div class="card">
@@ -221,35 +226,66 @@
     countVisits();
 
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const db = window.supabase.createClient(
-    "https://blmpavrvdesudcvqjhlz.supabase.co",
-    "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN"
-);
+(async function() {
 
-async function loadAdvertisement() {
-    const { data, error } = await db
-        .from("ads")
-        .select("image_path, target_url")
-        .eq("status", "approved")
-        .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
-        .order("created_at", { ascending: false })
-        .limit(1);
+    const db = window.supabase.createClient(
+        "https://blmpavrvdesudcvqjhlz.supabase.co",
+        "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN"
+    );
 
-    if (error || !data || data.length === 0) return;
+    const status = document.getElementById("adStatus");
 
-    const ad = data[0];
+    try {
+        const { data, error } = await db
+            .from("ads")
+            .select("id, image_path, target_url, status")
+            .eq("status", "approved")
+            .order("created_at", { ascending: false })
+            .limit(1);
 
-    const { data: image } = db.storage
-        .from("ads-banners")
-        .getPublicUrl(ad.image_path);
+        if (error) throw error;
 
-    document.getElementById("adBanner").src = image.publicUrl;
-    document.getElementById("adLink").href = ad.target_url;
-    document.getElementById("reklama").hidden = false;
-}
+        if (!data || data.length === 0) {
+            status.textContent = "Одобренной рекламы пока нет.";
+            return;
+        }
 
-loadAdvertisement();
+        const ad = data[0];
+
+        let imageUrl;
+
+        if (ad.image_path.startsWith("http")) {
+            imageUrl = ad.image_path;
+        } else {
+            const { data: image } = db.storage
+                .from("ads-banners")
+                .getPublicUrl(ad.image_path);
+
+            imageUrl = image.publicUrl;
+        }
+
+        const banner = document.getElementById("adBanner");
+        const link = document.getElementById("adLink");
+
+        banner.onload = function() {
+            status.textContent = "";
+        };
+
+        banner.onerror = function() {
+            status.textContent = "Ошибка загрузки картинки: " + ad.image_path;
+        };
+
+        banner.src = imageUrl;
+        link.href = ad.target_url;
+        link.style.display = "block";
+
+    } catch (error) {
+        status.textContent = "Ошибка Supabase: " + error.message;
+    }
+
+})();
 </script>
 <script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
 </body>
