@@ -150,37 +150,31 @@ input{
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 const KEY = "ufo_starcraft_pet_v1";
 
 const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
 
-const sb = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY,
-    {
-        auth: {
-            persistSession: true,
-            autoRefreshToken: true
-        }
-    }
-);
+let sb = null;
+let currentUser = null;
+let cloudReady = false;
 
 function newPet(){
     return {
-        id: "UFO-" + Math.random().toString(36).substring(2,10),
-        name: "Организм №001",
-        stage: 0,
-        age: 0,
-        growth: 0,
-        hunger: 80,
-        health: 100,
-        energy: 100,
-        happiness: 80,
-        water: 80,
-        strength: 0,
-        log: ["Начало эксперимента. Обнаружено космическое яйцо."]
+        id:"UFO-"+Math.random().toString(36).substring(2,10),
+        name:"Организм №001",
+        stage:0,
+        age:0,
+        growth:0,
+        hunger:80,
+        health:100,
+        energy:100,
+        happiness:80,
+        water:80,
+        strength:0,
+        log:["Начало эксперимента. Обнаружено космическое яйцо."]
     };
 }
 
@@ -192,33 +186,34 @@ try {
     pet = newPet();
 }
 
-let currentUser = null;
-let cloudReady = false;
+if(!Array.isArray(pet.log)) pet.log=[];
+if(!Number.isFinite(pet.stage)) pet.stage=0;
+pet.stage=Math.max(0,Math.min(3,pet.stage));
 
-const stages = [
+const stages=[
     {
-        name: "Космическое яйцо",
-        icon: "🥚",
-        description: "Внутри яйца зарождается неизвестная жизнь."
+        name:"Космическое яйцо",
+        icon:"🥚",
+        description:"Внутри яйца зарождается неизвестная жизнь."
     },
     {
-        name: "Инопланетное растение",
-        icon: "🌱",
-        description: "Появились корни и листья."
+        name:"Инопланетное растение",
+        icon:"🌱",
+        description:"Появились корни и листья."
     },
     {
-        name: "Биологическая мышца",
-        icon: "💪",
-        description: "Организм формирует мышечные ткани."
+        name:"Биологическая мышца",
+        icon:"💪",
+        description:"Организм формирует мышечные ткани."
     },
     {
-        name: "UFO-организм",
-        icon: "👽",
-        description: "Развилась новая инопланетная форма жизни!"
+        name:"UFO-организм",
+        icon:"👽",
+        description:"Развилась новая инопланетная форма жизни!"
     }
 ];
 
-const statInfo = [
+const statInfo=[
     ["hunger","Питание"],
     ["health","Здоровье"],
     ["energy","Энергия"],
@@ -228,13 +223,7 @@ const statInfo = [
 ];
 
 function clamp(v){
-    return Math.max(0,Math.min(100,v));
-}
-
-function log(text){
-    pet.log.unshift(new Date().toLocaleTimeString()+" — "+text);
-    pet.log = pet.log.slice(0,40);
-    render();
+    return Math.max(0,Math.min(100,Number(v)||0));
 }
 
 function escapeHTML(text){
@@ -247,161 +236,140 @@ function escapeHTML(text){
     }[c]));
 }
 
-// АНОНИМНЫЙ ВХОД И ЗАГРУЗКА ПИТОМЦА
-async function initCloud(){
-    try {
-        let {data:{session},error} = await sb.auth.getSession();
+// ЖУРНАЛ
+function log(message){
+    pet.log.unshift(
+        new Date().toLocaleTimeString()+" — "+message
+    );
+
+    pet.log=pet.log.slice(0,40);
+    render();
+}
+
+// ЛОКАЛЬНОЕ И ОБЛАЧНОЕ СОХРАНЕНИЕ
+async function saveGame(){
+
+    // Сначала всегда сохраняем на устройстве
+    localStorage.setItem(KEY,JSON.stringify(pet));
+
+    if(!cloudReady || !currentUser || !sb){
+        return;
+    }
+
+    try{
+        const {error}=await sb
+            .from("pets")
+            .upsert({
+                user_id:currentUser.id,
+                name:pet.name,
+                state:pet,
+                updated_at:new Date().toISOString()
+            },{
+                onConflict:"user_id"
+            });
 
         if(error) throw error;
 
-        if(!session){
-            const result = await sb.auth.signInAnonymously();
-
-            if(result.error) throw result.error;
-
-            session = result.data.session;
-        }
-
-        currentUser = session.user;
-
-        // Регистрируем анонимного игрока
-        const {error:userError} = await sb
-            .from("anonymous_users")
-            .upsert({
-                id: currentUser.id,
-                last_seen_at: new Date().toISOString()
-            });
-
-        if(userError) throw userError;
-
-        // Загружаем питомца из базы
-        const {data,error:petError} = await sb
-            .from("pets")
-            .select("name,state")
-            .eq("user_id",currentUser.id)
-            .maybeSingle();
-
-        if(petError) throw petError;
-
-        if(data && data.state){
-            pet = data.state;
-            pet.name = data.name || pet.name;
-        } else {
-            await saveGame();
-        }
-
-        cloudReady = true;
-
-        document.getElementById("playerId").textContent =
+        document.getElementById("playerId").textContent=
             currentUser.id;
 
-        log("Облачное сохранение подключено.");
-        render();
+    }catch(error){
+        console.error("Ошибка облака:",error);
 
-    } catch(error) {
-        console.error("Supabase:",error);
-
-        document.getElementById("playerId").textContent =
-            "Локальный режим";
-
-        log("Облако недоступно. Сохранение работает локально.");
+        document.getElementById("playerId").textContent=
+            "Локальное сохранение";
     }
 }
 
-// СОХРАНЕНИЕ В БРАУЗЕР И БАЗУ
-async function saveGame(){
-    localStorage.setItem(KEY,JSON.stringify(pet));
-
-    if(!cloudReady || !currentUser) return;
-
-    const {error} = await sb
-        .from("pets")
-        .upsert({
-            user_id: currentUser.id,
-            name: pet.name,
-            state: pet,
-            updated_at: new Date().toISOString()
-        }, {
-            onConflict: "user_id"
-        });
-
-    if(error){
-        console.error("Ошибка сохранения:",error);
-        document.getElementById("playerId").textContent =
-            "Ошибка облачного сохранения";
-    }
-}
-
+// ИМЯ
 function saveName(){
-    const value = document.getElementById("petName").value.trim();
+    const input=document.getElementById("petName");
+    const value=input.value.trim();
 
-    if(value){
-        pet.name = value;
-        log("Организм получил имя: "+value);
-        saveGame();
-    }
+    if(!value) return;
+
+    pet.name=value;
+
+    log("Организм получил имя: "+value);
+    saveGame();
 }
 
+// УХОД ЗА ПИТОМЦЕМ
 function action(type){
-    if(pet.health <= 0){
+
+    if(pet.health<=0){
         alert("Организм нуждается в восстановлении!");
         return;
     }
 
-    if(type === "water"){
-        pet.water = clamp(pet.water+25);
-        pet.health = clamp(pet.health+3);
-        log("Организм получил воду.");
-    }
+    switch(type){
 
-    if(type === "food"){
-        pet.hunger = clamp(pet.hunger+25);
-        pet.growth = clamp(pet.growth+3);
-        log("Организм получил питание.");
-    }
+        case "water":
+            pet.water=clamp(pet.water+25);
+            pet.health=clamp(pet.health+3);
+            log("Организм получил воду.");
+            break;
 
-    if(type === "train"){
-        if(pet.energy < 15){
-            alert("Недостаточно энергии.");
+        case "food":
+            pet.hunger=clamp(pet.hunger+25);
+            pet.growth=clamp(pet.growth+3);
+            log("Организм получил питание.");
+            break;
+
+        case "train":
+
+            if(pet.energy<15){
+                alert("Недостаточно энергии!");
+                return;
+            }
+
+            pet.energy=clamp(pet.energy-15);
+            pet.strength=clamp(pet.strength+12);
+            pet.growth=clamp(pet.growth+5);
+
+            log("Мышечные ткани получили нагрузку.");
+            break;
+
+        case "sleep":
+            pet.energy=clamp(pet.energy+30);
+            pet.health=clamp(pet.health+5);
+            log("Организм отдыхает.");
+            break;
+
+        case "clean":
+            pet.health=clamp(pet.health+5);
+            pet.happiness=clamp(pet.happiness+5);
+            log("Организм очищен.");
+            break;
+
+        case "scan":
+            log(
+                "Сканирование: "+
+                stages[pet.stage].name+
+                ". Развитие: "+pet.growth+"%."
+            );
+            break;
+
+        default:
             return;
-        }
-
-        pet.energy = clamp(pet.energy-15);
-        pet.strength = clamp(pet.strength+12);
-        pet.growth = clamp(pet.growth+5);
-        log("Мышечные ткани получили нагрузку.");
-    }
-
-    if(type === "sleep"){
-        pet.energy = clamp(pet.energy+30);
-        pet.health = clamp(pet.health+5);
-        log("Организм отдыхает.");
-    }
-
-    if(type === "clean"){
-        pet.health = clamp(pet.health+5);
-        pet.happiness = clamp(pet.happiness+5);
-        log("Организм очищен.");
-    }
-
-    if(type === "scan"){
-        log("Сканирование: "+stages[pet.stage].name+
-            ". Развитие: "+pet.growth+"%.");
     }
 
     evolveCheck();
+    render();
     saveGame();
 }
 
+// ЭВОЛЮЦИЯ
 function evolveCheck(){
+
     if(pet.stage===0 && pet.growth>=30){
         pet.stage=1;
-        log("ЭВОЛЮЦИЯ! Появилось растение.");
+        log("ЭВОЛЮЦИЯ! Появилось инопланетное растение.");
     }
 
     if(pet.stage===1 && pet.growth>=65){
         pet.stage=2;
-        log("ЭВОЛЮЦИЯ! Появилась мышечная ткань.");
+        log("ЭВОЛЮЦИЯ! Появилась биологическая мышца.");
     }
 
     if(pet.stage===2 && pet.growth>=100){
@@ -412,46 +380,162 @@ function evolveCheck(){
 
 function evolve(){
     evolveCheck();
+    render();
     saveGame();
 }
 
+// ОТОБРАЖЕНИЕ
 function render(){
-    const s = stages[pet.stage];
+
+    const s=stages[pet.stage];
 
     document.getElementById("petIcon").textContent=s.icon;
+
     document.getElementById("stageName").textContent=s.name;
-    document.getElementById("petDescription").textContent=s.description;
+
+    document.getElementById("petDescription").textContent=
+        s.description;
+
     document.getElementById("age").textContent=pet.age;
+
     document.getElementById("growth").textContent=pet.growth;
+
     document.getElementById("petName").value=pet.name;
 
-    document.getElementById("stats").innerHTML =
+    document.getElementById("stats").innerHTML=
         statInfo.map(([key,name])=>`
         <div class="stat">
-            <div class="stat-name">${name}: ${pet[key]}%</div>
-            <div class="bar">
-                <div class="fill" style="width:${pet[key]}%"></div>
+            <div class="stat-name">
+                ${name}: ${pet[key]}%
             </div>
-        </div>`).join("");
+            <div class="bar">
+                <div class="fill"
+                     style="width:${clamp(pet[key])}%">
+                </div>
+            </div>
+        </div>
+        `).join("");
 
-    document.getElementById("evolutionText").textContent =
-        "Текущая стадия: "+s.name;
+    document.getElementById("evolutionText").textContent=
+        "Текущая стадия: "+s.name+
+        ". Развитие: "+pet.growth+"%";
 
-    document.getElementById("log").innerHTML =
-        pet.log.map(x=>"<div>"+escapeHTML(x)+"</div>").join("");
+    document.getElementById("log").innerHTML=
+        pet.log.map(x=>
+            "<div>"+escapeHTML(x)+"</div>"
+        ).join("");
 }
 
+// НОВЫЙ ПИТОМЕЦ
 function resetGame(){
+
     if(!confirm("Создать нового питомца?")) return;
 
-    pet = newPet();
-    saveGame();
+    pet=newPet();
+
     render();
+    saveGame();
+
+    log("Создан новый организм.");
 }
 
-// ЗАПУСК
+// ПОДКЛЮЧЕНИЕ SUPABASE
+async function initCloud(){
+
+    try{
+
+        if(!window.supabase){
+            throw new Error("Библиотека Supabase не загрузилась.");
+        }
+
+        sb=window.supabase.createClient(
+            SUPABASE_URL,
+            SUPABASE_KEY,
+            {
+                auth:{
+                    persistSession:true,
+                    autoRefreshToken:true
+                }
+            }
+        );
+
+        let {data,error}=await sb.auth.getSession();
+
+        if(error) throw error;
+
+        let session=data.session;
+
+        if(!session){
+
+            const result=await sb.auth.signInAnonymously();
+
+            if(result.error) throw result.error;
+
+            session=result.data.session;
+        }
+
+        if(!session || !session.user){
+            throw new Error("Не удалось получить анонимный ID.");
+        }
+
+        currentUser=session.user;
+
+        const {error:userError}=await sb
+            .from("anonymous_users")
+            .upsert({
+                id:currentUser.id,
+                last_seen_at:new Date().toISOString()
+            });
+
+        if(userError) throw userError;
+
+        const {data:cloudPet,error:petError}=await sb
+            .from("pets")
+            .select("name,state")
+            .eq("user_id",currentUser.id)
+            .maybeSingle();
+
+        if(petError) throw petError;
+
+        if(cloudPet && cloudPet.state){
+
+            pet=cloudPet.state;
+            pet.name=cloudPet.name || pet.name;
+
+            if(!Array.isArray(pet.log)) pet.log=[];
+            pet.stage=Math.max(0,Math.min(3,Number(pet.stage)||0));
+
+        }
+
+        cloudReady=true;
+
+        document.getElementById("playerId").textContent=
+            currentUser.id;
+
+        render();
+
+        await saveGame();
+
+        log("Облачное сохранение подключено.");
+
+    }catch(error){
+
+        console.error("Supabase:",error);
+
+        document.getElementById("playerId").textContent=
+            "Локальный режим";
+
+        log("Облако недоступно. Игра работает локально.");
+    }
+}
+
+// ЗАПУСК ИГРЫ
 render();
+
+saveGame();
+
 initCloud();
+
 </script>
 </body>
 </html>
