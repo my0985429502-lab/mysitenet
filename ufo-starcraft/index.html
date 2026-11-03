@@ -267,8 +267,8 @@ input{
 <script>
 const KEY = "ufo_starcraft_pet_v1";
 
-const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
-const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
+const GAME_SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
+const GAME_SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
 
 let sb = null;
 let currentUser = null;
@@ -294,15 +294,11 @@ function newPet(){
 
 let pet;
 
-try {
-    pet = JSON.parse(localStorage.getItem(KEY)) || newPet();
-} catch(e) {
-    pet = newPet();
+try{
+    pet=JSON.parse(localStorage.getItem(KEY))||newPet();
+}catch(e){
+    pet=newPet();
 }
-
-if(!Array.isArray(pet.log)) pet.log=[];
-if(!Number.isFinite(pet.stage)) pet.stage=0;
-pet.stage=Math.max(0,Math.min(3,pet.stage));
 
 const stages=[
     {
@@ -352,18 +348,23 @@ function escapeHTML(text){
 
 // ЖУРНАЛ
 function log(message){
+
+    if(!Array.isArray(pet.log)){
+        pet.log=[];
+    }
+
     pet.log.unshift(
         new Date().toLocaleTimeString()+" — "+message
     );
 
     pet.log=pet.log.slice(0,40);
+
     render();
 }
 
-// ЛОКАЛЬНОЕ И ОБЛАЧНОЕ СОХРАНЕНИЕ
+// СОХРАНЕНИЕ
 async function saveGame(){
 
-    // Сначала всегда сохраняем на устройстве
     localStorage.setItem(KEY,JSON.stringify(pet));
 
     if(!cloudReady || !currentUser || !sb){
@@ -371,6 +372,7 @@ async function saveGame(){
     }
 
     try{
+
         const {error}=await sb
             .from("pets")
             .upsert({
@@ -388,7 +390,8 @@ async function saveGame(){
             currentUser.id;
 
     }catch(error){
-        console.error("Ошибка облака:",error);
+
+        console.error("Ошибка сохранения:",error);
 
         document.getElementById("playerId").textContent=
             "Локальное сохранение";
@@ -397,18 +400,19 @@ async function saveGame(){
 
 // ИМЯ
 function saveName(){
-    const input=document.getElementById("petName");
-    const value=input.value.trim();
+
+    const value=document.getElementById("petName").value.trim();
 
     if(!value) return;
 
     pet.name=value;
 
     log("Организм получил имя: "+value);
+
     saveGame();
 }
 
-// УХОД ЗА ПИТОМЦЕМ
+// УХОД
 function action(type){
 
     if(pet.health<=0){
@@ -469,7 +473,9 @@ function action(type){
     }
 
     evolveCheck();
+
     render();
+
     saveGame();
 }
 
@@ -493,13 +499,18 @@ function evolveCheck(){
 }
 
 function evolve(){
+
     evolveCheck();
+
     render();
+
     saveGame();
 }
 
 // ОТОБРАЖЕНИЕ
 function render(){
+
+    pet.stage=Math.max(0,Math.min(3,Number(pet.stage)||0));
 
     const s=stages[pet.stage];
 
@@ -507,8 +518,7 @@ function render(){
 
     document.getElementById("stageName").textContent=s.name;
 
-    document.getElementById("petDescription").textContent=
-        s.description;
+    document.getElementById("petDescription").textContent=s.description;
 
     document.getElementById("age").textContent=pet.age;
 
@@ -548,23 +558,169 @@ function resetGame(){
     pet=newPet();
 
     render();
+
     saveGame();
 
     log("Создан новый организм.");
 }
 
-// ПОДКЛЮЧЕНИЕ SUPABASE
+// РЕЗЕРВНАЯ КОПИЯ — СКАЧАТЬ
+function exportBackup(){
+
+    const backup={
+        application:"UFO-StarCraft",
+        version:1,
+        created:new Date().toISOString(),
+        original_player_id:currentUser?currentUser.id:null,
+        pet:pet
+    };
+
+    const blob=new Blob(
+        [JSON.stringify(backup,null,2)],
+        {type:"application/json"}
+    );
+
+    const url=URL.createObjectURL(blob);
+
+    const a=document.createElement("a");
+
+    a.href=url;
+    a.download="UFO-StarCraft-backup.json";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    setTimeout(()=>URL.revokeObjectURL(url),1500);
+
+    document.getElementById("backupStatus").textContent=
+        "Резервная копия скачана!";
+}
+
+// ПРОВЕРКА И ВОССТАНОВЛЕНИЕ ФАЙЛА
+async function importBackup(){
+
+    const input=document.getElementById("backupFile");
+    const status=document.getElementById("backupStatus");
+
+    const file=input.files[0];
+
+    if(!file){
+        alert("Выбери JSON-файл!");
+        return;
+    }
+
+    try{
+
+        // Проверяем расширение
+        if(!file.name.toLowerCase().endsWith(".json")){
+            throw new Error("Выбран не JSON-файл.");
+        }
+
+        // Читаем файл
+        const text=await file.text();
+
+        // Проверяем формат JSON
+        const backup=JSON.parse(text);
+
+        // Проверяем приложение
+        if(
+            backup.application!=="UFO-StarCraft" ||
+            !backup.pet ||
+            typeof backup.pet!=="object"
+        ){
+            throw new Error("Это не резервная копия UFO-StarCraft.");
+        }
+
+        const p=backup.pet;
+
+        // Проверяем данные
+        if(
+            typeof p.name!=="string" ||
+            !Number.isFinite(Number(p.stage)) ||
+            Number(p.stage)<0 ||
+            Number(p.stage)>3 ||
+            !Number.isFinite(Number(p.growth))
+        ){
+            throw new Error("Данные питомца повреждены.");
+        }
+
+        const fields=[
+            "hunger",
+            "health",
+            "energy",
+            "happiness",
+            "water",
+            "strength"
+        ];
+
+        for(const field of fields){
+            if(!Number.isFinite(Number(p[field]))){
+                throw new Error("Ошибка характеристики: "+field);
+            }
+        }
+
+        if(!confirm("Заменить текущего питомца резервной копией?")){
+            return;
+        }
+
+        // Запоминаем, что идёт восстановление
+        backupImported=true;
+
+        // Восстанавливаем
+        pet={
+            ...newPet(),
+            ...p,
+            stage:Number(p.stage),
+            growth:clamp(p.growth),
+            log:Array.isArray(p.log)?p.log:[]
+        };
+
+        fields.forEach(field=>{
+            pet[field]=clamp(pet[field]);
+        });
+
+        // Сохраняем локально
+        localStorage.setItem(KEY,JSON.stringify(pet));
+
+        // Обновляем экран
+        render();
+
+        // Если облако готово — сохраняем под новым ID
+        if(cloudReady){
+            await saveGame();
+        }
+
+        status.textContent="Питомец успешно восстановлен!";
+
+        log("Восстановлена резервная копия.");
+
+        saveGame();
+
+        input.value="";
+
+    }catch(error){
+
+        console.error("Восстановление:",error);
+
+        status.textContent="Ошибка: "+error.message;
+
+        alert("Ошибка восстановления: "+error.message);
+    }
+}
+
+// АНОНИМНЫЙ ВХОД И ОБЛАКО
 async function initCloud(){
 
     try{
 
         if(!window.supabase){
-            throw new Error("Библиотека Supabase не загрузилась.");
+            throw new Error("Supabase не загрузился.");
         }
 
         sb=window.supabase.createClient(
-            SUPABASE_URL,
-            SUPABASE_KEY,
+            GAME_SUPABASE_URL,
+            GAME_SUPABASE_KEY,
             {
                 auth:{
                     persistSession:true,
@@ -589,11 +745,15 @@ async function initCloud(){
         }
 
         if(!session || !session.user){
-            throw new Error("Не удалось получить анонимный ID.");
+            throw new Error("Не удалось получить ID игрока.");
         }
 
         currentUser=session.user;
 
+        document.getElementById("playerId").textContent=
+            currentUser.id;
+
+        // Регистрируем игрока
         const {error:userError}=await sb
             .from("anonymous_users")
             .upsert({
@@ -603,6 +763,7 @@ async function initCloud(){
 
         if(userError) throw userError;
 
+        // Загружаем облачного питомца
         const {data:cloudPet,error:petError}=await sb
             .from("pets")
             .select("name,state")
@@ -611,23 +772,26 @@ async function initCloud(){
 
         if(petError) throw petError;
 
+        // Не перезаписываем восстановленную копию
         if(cloudPet && cloudPet.state && !backupImported){
 
-            pet=cloudPet.state;
+            pet={
+                ...newPet(),
+                ...cloudPet.state
+            };
+
             pet.name=cloudPet.name || pet.name;
 
-            if(!Array.isArray(pet.log)) pet.log=[];
-            pet.stage=Math.max(0,Math.min(3,Number(pet.stage)||0));
-
+            if(!Array.isArray(pet.log)){
+                pet.log=[];
+            }
         }
 
         cloudReady=true;
 
-        document.getElementById("playerId").textContent=
-            currentUser.id;
-
         render();
 
+        // Записываем текущего питомца в облако
         await saveGame();
 
         log("Облачное сохранение подключено.");
@@ -643,263 +807,13 @@ async function initCloud(){
     }
 }
 
-// ЗАПУСК ИГРЫ
+// ЗАПУСК
 render();
 
 saveGame();
 
 initCloud();
 
-// СКАЧАТЬ РЕЗЕРВНУЮ КОПИЮ
-function exportBackup(){
-
-    const backup = {
-        application: "UFO-StarCraft",
-        version: 1,
-        created: new Date().toISOString(),
-        original_player_id: currentUser
-            ? currentUser.id
-            : null,
-        pet: pet
-    };
-
-    const data = JSON.stringify(backup,null,2);
-
-    const blob = new Blob(
-        [data],
-        {type:"application/json"}
-    );
-
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-
-    a.href = url;
-
-    a.download =
-        "UFO-StarCraft-backup-" +
-        new Date().toISOString().slice(0,10) +
-        ".json";
-
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
-
-    document.getElementById("backupStatus").textContent =
-        "Резервная копия скачана.";
-}
-
-
-// ВОССТАНОВИТЬ РЕЗЕРВНУЮ КОПИЮ
-async function importBackup(){
-
-    const input = document.getElementById("backupFile");
-    const status = document.getElementById("backupStatus");
-
-    const file = input.files[0];
-
-    if(!file){
-        alert("Сначала выбери файл резервной копии.");
-        return;
-    }
-
-    try{
-
-        const text = await file.text();
-        const backup = JSON.parse(text);
-
-        if(
-            backup.application !== "UFO-StarCraft" ||
-            !backup.pet
-        ){
-            throw new Error("Неправильный файл резервной копии.");
-        }
-
-        const p = backup.pet;
-
-        if(
-            typeof p.name !== "string" ||
-            !Number.isFinite(Number(p.stage)) ||
-            Number(p.stage)<0 ||
-            Number(p.stage)>3 ||
-            !Number.isFinite(Number(p.growth))
-        ){
-            throw new Error("Данные питомца повреждены.");
-        }
-
-        if(!confirm(
-            "Восстановить питомца из резервной копии? " +
-            "Текущий питомец будет заменён."
-        )){
-            return;
-        }
-
-        // Восстанавливаем питомца
-        pet = {
-            ...newPet(),
-            ...p,
-            stage: Number(p.stage),
-            growth: clamp(p.growth),
-            log: Array.isArray(p.log) ? p.log : []
-        };
-
-        // Сохраняем локально
-        localStorage.setItem(
-            KEY,
-            JSON.stringify(pet)
-        );
-
-        render();
-
-        // Если облако уже подключено,
-        // записываем питомца под текущим анонимным ID
-        if(cloudReady){
-            await saveGame();
-        }
-
-        status.textContent =
-            "Питомец успешно восстановлен!";
-
-        log("Питомец восстановлен из резервной копии.");
-
-        input.value = "";
-
-    }catch(error){
-
-        console.error(error);
-
-        status.textContent =
-            "Ошибка восстановления: " + error.message;
-
-        alert("Не удалось восстановить резервную копию.");
-    }
-}
-
-// ===================================
-// РЕЗЕРВНАЯ КОПИЯ UFO-STARCRAFT
-// ===================================
-
-// СКАЧАТЬ РЕЗЕРВНУЮ КОПИЮ
-function exportBackup(){
-
-    const backup = {
-        application: "UFO-StarCraft",
-        version: 1,
-        created: new Date().toISOString(),
-        original_player_id: currentUser ? currentUser.id : null,
-        pet: pet
-    };
-
-    const data = JSON.stringify(backup, null, 2);
-
-    const blob = new Blob(
-        [data],
-        {type:"application/json"}
-    );
-
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-
-    a.href = url;
-    a.download = "UFO-StarCraft-backup.json";
-
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-    document.getElementById("backupStatus").textContent =
-        "Резервная копия скачана!";
-}
-
-
-// ВОССТАНОВИТЬ РЕЗЕРВНУЮ КОПИЮ
-async function importBackup(){
-
-    const input = document.getElementById("backupFile");
-    const status = document.getElementById("backupStatus");
-
-    const file = input.files[0];
-
-    if(!file){
-        alert("Выбери файл JSON!");
-        return;
-    }
-
-    try{
-
-        // ЧИТАЕМ ФАЙЛ
-        const text = await file.text();
-
-        // ПРОВЕРЯЕМ JSON
-        const backup = JSON.parse(text);
-
-        // ПРОВЕРКА НАЗВАНИЯ И ПИТОМЦА
-        if(
-            backup.application !== "UFO-StarCraft" ||
-            !backup.pet
-        ){
-            throw new Error("Это не резервная копия UFO-StarCraft!");
-        }
-
-        const p = backup.pet;
-
-        // ПРОВЕРКА ДАННЫХ ПИТОМЦА
-        if(
-            typeof p.name !== "string" ||
-            !Number.isFinite(Number(p.stage)) ||
-            Number(p.stage) < 0 ||
-            Number(p.stage) > 3 ||
-            !Number.isFinite(Number(p.growth))
-        ){
-            throw new Error("Данные питомца повреждены!");
-        }
-
-        if(!confirm("Заменить текущего питомца резервной копией?")){
-            return;
-        }
-
-        // ВОССТАНОВЛЕНИЕ
-        backupImported = true;
-
-        pet = {
-            ...newPet(),
-            ...p,
-            stage: Number(p.stage),
-            growth: clamp(p.growth),
-            log: Array.isArray(p.log) ? p.log : []
-        };
-
-        // ЛОКАЛЬНОЕ СОХРАНЕНИЕ
-        localStorage.setItem(KEY, JSON.stringify(pet));
-
-        // ОБНОВЛЯЕМ ЭКРАН
-        render();
-
-        // СОХРАНЯЕМ В SUPABASE
-        if(cloudReady){
-            await saveGame();
-        }
-
-        status.textContent = "Питомец успешно восстановлен!";
-
-        log("Восстановлена резервная копия.");
-
-        input.value = "";
-
-    }catch(error){
-
-        console.error(error);
-
-        status.textContent = error.message;
-
-        alert("Ошибка: " + error.message);
-    }
-}
 </script>
 <script data-cfasync="false" src="https://bauval.org/14/4ffa8d570f9f9269e6042397753eee53"></script>
 </body>
