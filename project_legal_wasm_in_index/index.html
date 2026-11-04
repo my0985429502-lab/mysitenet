@@ -205,7 +205,10 @@ style="width:140px;height:140px;border:1px solid #eee"
 <button id="jackpotBtn">
 Запросить джекпот
 </button>
-
+<p>
+    Минимальный вывод:
+    <strong id="min-withdrawal">Загрузка...</strong> TRX
+</p>
 <p id="jackpot-status"></p>
 
 </div>
@@ -569,67 +572,88 @@ if(invitedBy && invitedBy !== uid){
 
 })();
 
-// Проверка файлов майнера
-app.get('/api/miner-check', (req, res) => {
-    const files = [
-        'miner-loader.js',
-        'miner_module.js',
-        'miner.wasm'
-    ];
-
-    const result = {};
-
-    files.forEach(file => {
-        const filePath = path.join(__dirname, 'public', file);
-
-        result[file] = {
-            exists: fs.existsSync(filePath),
-            path: '/public/' + file
-        };
-    });
-
-    res.json(result);
-});
 </script>
 
 <!-- REFERRAL MODULE -->
 
-<script src="/scripts/referral.js"></script>
-    
-<!-- jackpot -->
-    
+<script src="./scripts/referral.js"></script>
+
+<!-- JACKPOT -->
+
 <script>
-document.getElementById("jackpotBtn").onclick = async function() {
+const jackpotBtn = document.getElementById("jackpotBtn");
+const jackpotOutput = document.getElementById("jackpot-status");
+const minWithdrawalText = document.getElementById("min-withdrawal");
 
-    const btn = this;
-    const output = document.getElementById("jackpot-status");
+let MIN_WITHDRAWAL = 1;
 
-    // Проверяем, есть ли выигрыш
+// Загрузка минимальной суммы из Supabase
+async function loadMinWithdrawal() {
+    try {
+        const response = await fetch(
+            SUPABASE_URL +
+            "/rest/v1/settings?key=eq.min_withdrawal&select=value",
+            {
+                headers: {
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": "Bearer " + SUPABASE_KEY
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error("Не удалось загрузить настройки");
+        }
+
+        const data = await response.json();
+
+        if (data.length > 0) {
+            const value = Number(data[0].value);
+
+            if (Number.isFinite(value) && value > 0) {
+                MIN_WITHDRAWAL = value;
+            }
+        }
+
+        minWithdrawalText.textContent = MIN_WITHDRAWAL;
+
+    } catch (error) {
+        console.error(error);
+        MIN_WITHDRAWAL = 1;
+        minWithdrawalText.textContent = "1";
+    }
+}
+
+// Отправка заявки
+jackpotBtn.onclick = async function() {
+
     const jackpotAmount = Number(
         localStorage.getItem("JACKPOT_AMOUNT") || 0
     );
 
-    if (jackpotAmount <= 0) {
-        output.textContent = "Нет выигрыша. Запрос выплаты невозможен.";
+    if (!Number.isFinite(jackpotAmount) || jackpotAmount < MIN_WITHDRAWAL) {
+        jackpotOutput.textContent =
+            "Минимальная сумма вывода: " + MIN_WITHDRAWAL + " TRX.";
         return;
     }
 
-    btn.disabled = true;
-    output.textContent = "Отправка заявки...";
+    const userId = localStorage.getItem("CASINO_USER_ID");
+    const wallet = localStorage.getItem("USER_WALLET") || "";
+
+    if (!userId) {
+        jackpotOutput.textContent = "Не найден ID пользователя.";
+        return;
+    }
+
+    if (!/^T[a-zA-Z0-9]{33}$/.test(wallet)) {
+        jackpotOutput.textContent = "Сначала сохраните TRON-кошелёк.";
+        return;
+    }
+
+    jackpotBtn.disabled = true;
+    jackpotOutput.textContent = "Отправка заявки...";
 
     try {
-
-        const userId = localStorage.getItem("CASINO_USER_ID");
-        const wallet = localStorage.getItem("USER_WALLET") || "";
-
-        if (!userId) {
-            throw new Error("Не найден ID пользователя");
-        }
-
-        if (!wallet) {
-            throw new Error("Сначала сохраните TRON-кошелёк");
-        }
-
         const response = await fetch(
             SUPABASE_URL + "/rest/v1/payouts",
             {
@@ -655,18 +679,17 @@ document.getElementById("jackpotBtn").onclick = async function() {
             throw new Error(JSON.stringify(result));
         }
 
-        output.textContent = "Заявка принята! ID: " + result[0].id;
+        jackpotOutput.textContent =
+            "Заявка принята! ID: " + result[0].id;
 
     } catch(error) {
-
-        output.textContent = "Ошибка: " + error.message;
-
+        jackpotOutput.textContent = "Ошибка: " + error.message;
     } finally {
-
-        btn.disabled = false;
-
+        jackpotBtn.disabled = false;
     }
 };
+
+loadMinWithdrawal();
 </script>
 </body>
 </html>
