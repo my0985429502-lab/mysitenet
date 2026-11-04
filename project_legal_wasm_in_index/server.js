@@ -9,7 +9,17 @@ app.use(express.json({ limit: '20kb' }));
 
 // SQLite
 const DB_FILE = path.join(__dirname, 'data.db');
-const db = new sqlite3.Database(DB_FILE);
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+
+const fs = require("fs");
+
+if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+const db = new sqlite3.Database(
+    path.join(DATA_DIR, "data.db")
+);
 
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS payouts (
