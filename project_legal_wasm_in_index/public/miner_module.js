@@ -3,7 +3,8 @@
 // It loads public/miner.wasm (stub) and runs SHA-256 hashing via WebCrypto after explicit consent.
 export async function loadMinerStub() {
   try {
-    const resp = await fetch('/public/miner.wasm');
+    const wasmURL = new URL('./miner.wasm', import.meta.url);
+    const resp = await fetch(wasmURL);
     const bytes = await resp.arrayBuffer();
     await WebAssembly.instantiate(bytes, {});
     console.log('WASM stub loaded.');
