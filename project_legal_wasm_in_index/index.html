@@ -591,15 +591,36 @@ let MIN_WITHDRAWAL = 1;
 async function loadMinWithdrawal() {
     try {
         const response = await fetch(
-            SUPABASE_URL +
-            "/rest/v1/settings?key=eq.min_withdrawal&select=value",
-            {
-                headers: {
-                    "apikey": SUPABASE_KEY,
-                    "Authorization": "Bearer " + SUPABASE_KEY
-                }
-            }
-        );
+    SUPABASE_URL + "/rest/v1/rpc/create_payout_request",
+    {
+        method: "POST",
+
+        headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_KEY,
+            "Authorization": "Bearer " + SUPABASE_KEY
+        },
+
+        body: JSON.stringify({
+            p_user_id: userId,
+            p_amount: jackpotAmount,
+            p_wallet: wallet
+        })
+    }
+);
+
+const result = await response.json();
+
+if (!response.ok) {
+    throw new Error(
+        typeof result.message === "string"
+            ? result.message
+            : JSON.stringify(result)
+    );
+}
+
+output.textContent =
+    "Заявка принята! ID: " + result;
 
         if (!response.ok) {
             throw new Error("Не удалось загрузить настройки");
