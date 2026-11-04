@@ -1,5 +1,9 @@
 // jackpot.js — публичное отображение джекпота.
 // Положить рядом с index.html и подключить после объявления SUPABASE_URL/KEY.
+const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
+
+// Ниже идут функции джекпота
 (function () {
   "use strict";
 
