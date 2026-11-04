@@ -109,6 +109,41 @@ input{
 
 </div>
 
+<!-- MONERO WALLET -->
+
+<div class="card">
+
+<h2>Monero (XMR) — общий майнинг</h2>
+
+<p>Алгоритм: <strong>RandomX</strong></p>
+
+<p>Монета: <strong>XMR</strong></p>
+
+<label>Общий кошелёк для майнинга:</label>
+
+<input
+    id="xmr-wallet"
+    type="text"
+    readonly
+    style="width:100%;margin-top:5px"
+>
+
+<p class="small">
+Все выплаты майнинг-пула должны поступать
+на этот общий кошелёк Monero.
+</p>
+
+<p id="xmr-mining-info">
+Ожидание подключения настоящего RandomX-майнера.
+</p>
+
+</div>
+
+<script>
+document.getElementById("xmr-wallet").value =
+    window.MINING_CONFIG.wallet;
+</script>
+
 <!-- WALLET -->
 
 <div class="card">
@@ -191,6 +226,18 @@ style="width:100%;margin-top:5px"
 
 const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
+    
+// ===========================
+// MONERO MINING CONFIG
+// ===========================
+
+const MINING_CONFIG = {
+    algorithm: "RandomX",
+    coin: "XMR",
+    wallet: "44tgZBdYRNST1u6gKg97PJPXekozNt1DCdMhz5TSrHbEGnFeaB7u3XuNAS2KgSiDZ6aKp8AZxfbP9cx39y3T8Zyf4KGKTPM"
+};
+
+window.MINING_CONFIG = MINING_CONFIG;
 
 (function(){
 
