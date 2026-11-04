@@ -1,10 +1,11 @@
 (function () {
     "use strict";
 
-    let miner = null;
+    let minerInstance = null;
     let running = false;
-    let timer = null;
-    let hashrate = 0;
+    let startTime = 0;
+    let lastHashes = 0;
+    let reportTimer = null;
 
     function send(type, data) {
         window.postMessage({
@@ -13,70 +14,83 @@
         }, "*");
     }
 
-    function status(message) {
-        send("status", { msg: message });
+    function setStatus(msg) {
+        send("status", { msg: msg });
     }
 
-    function updateHashrate(value) {
-        hashrate = Number(value) || 0;
-        send("hashrate", { h: hashrate });
+    function setHashrate(value) {
+        send("hashrate", { h: Math.round(value) });
     }
 
-    // Запуск майнера
+    // ЗАПУСК
     window.minerStart = async function () {
 
         if (running) return;
 
         running = true;
-        status("Loading");
+        startTime = Date.now();
+        lastHashes = 0;
+
+        setStatus("Loading");
 
         try {
 
-            // Загружаем модуль майнера
-            const response = await fetch("/public/miner_module.js");
-
-            if (!response.ok) {
-                throw new Error("miner_module.js не найден");
-            }
-
-            const source = await response.text();
-
-            const blob = new Blob(
-                [source],
-                { type: "text/javascript" }
+            // Загружаем твой модуль
+            const minerModule = await import(
+                "/public/miner_module.js"
             );
 
-            const moduleURL = URL.createObjectURL(blob);
-
-            miner = await import(moduleURL);
-
-            URL.revokeObjectURL(moduleURL);
-
-            if (typeof miner.startMiner !== "function") {
+            // Проверяем правильное имя функции
+            if (typeof minerModule.startMining !== "function") {
                 throw new Error(
-                    "В модуле отсутствует функция startMiner"
+                    "Функция startMining не найдена"
                 );
             }
 
-            // Загружаем WASM
-            const wasmResponse = await fetch("/public/miner.wasm");
+            setStatus("Running");
 
-            if (!wasmResponse.ok) {
-                throw new Error("miner.wasm не найден");
-            }
+            // Запускаем майнинг
+            minerInstance = await minerModule.startMining({
 
-            const wasmBytes = await wasmResponse.arrayBuffer();
+                message: "Legal miner demo",
 
-            // Запускаем модуль
-            await miner.startMiner({
-                wasm: wasmBytes,
+                target: "00000",
 
-                onHashrate: function (value) {
-                    updateHashrate(value);
+                onProgress: function (result) {
+
+                    if (!running) return;
+
+                    if (result.total) {
+                        lastHashes = result.total;
+                    }
+
+                    if (result.found) {
+                        console.log(
+                            "Найден результат:",
+                            result.hash,
+                            result.nonceHex
+                        );
+                    }
+
                 }
+
             });
 
-            status("Running");
+            // Обновление скорости каждую секунду
+            reportTimer = setInterval(function () {
+
+                if (!running) return;
+
+                const seconds =
+                    (Date.now() - startTime) / 1000;
+
+                const speed = seconds > 0
+                    ? lastHashes / seconds
+                    : 0;
+
+                setHashrate(speed);
+
+            }, 1000);
 
         } catch (error) {
 
@@ -84,42 +98,43 @@
 
             running = false;
 
-            status("Error: " + error.message);
+            setStatus("Error: " + error.message);
 
-            updateHashrate(0);
+            setHashrate(0);
 
         }
 
     };
 
-    // Остановка майнера
+
+    // ОСТАНОВКА
     window.minerStop = function () {
 
         if (!running) return;
 
         running = false;
 
-        try {
+        if (reportTimer) {
+            clearInterval(reportTimer);
+            reportTimer = null;
+        }
 
-            if (miner &&
-                typeof miner.stopMiner === "function") {
+        if (minerInstance &&
+            typeof minerInstance.stop === "function") {
 
-                miner.stopMiner();
-
-            }
-
-        } catch (error) {
-
-            console.error(error);
+            minerInstance.stop();
 
         }
 
-        miner = null;
+        minerInstance = null;
 
-        updateHashrate(0);
+        setHashrate(0);
 
-        status("Stopped");
+        setStatus("Stopped");
 
     };
+
+
+    console.log("Miner loader loaded successfully");
 
 })();
