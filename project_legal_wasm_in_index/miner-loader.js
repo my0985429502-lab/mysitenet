@@ -3,8 +3,11 @@
 
     let miner = null;
     let running = false;
-    let timer = null;
-    let hashrate = 0;
+    let loading = false;
+    let cancelStart = false;
+
+    let lastTotal = 0;
+    let lastTime = 0;
 
     function send(type, data) {
         window.postMessage({
@@ -13,68 +16,105 @@
         }, "*");
     }
 
-    function status(message) {
-        send("status", { msg: message });
+    function status(msg) {
+        send("status", {msg});
     }
 
     function updateHashrate(value) {
-        hashrate = Number(value) || 0;
-        send("hashrate", { h: hashrate });
+        send("hashrate", {
+            h: Math.round(Number(value) || 0)
+        });
     }
 
-    // Запуск майнера
+    // ЗАПУСК
     window.minerStart = async function () {
 
-        if (running) return;
+        if (running || loading) return;
 
-        running = true;
+        loading = true;
+        cancelStart = false;
+
         status("Loading");
+        updateHashrate(0);
 
         try {
 
-            // Загружаем модуль майнера
-            const response = await fetch("/public/miner_module.js");
-
-            if (!response.ok) {
-                throw new Error("miner_module.js не найден");
-            }
-
-            const source = await response.text();
-
-            const blob = new Blob(
-                [source],
-                { type: "text/javascript" }
+            // Загружаем настоящий JS-модуль
+            const module = await import(
+                "/public/miner_module.js"
             );
 
-            const moduleURL = URL.createObjectURL(blob);
+            if (cancelStart) {
+                loading = false;
+                return;
+            }
 
-            miner = await import(moduleURL);
-
-            URL.revokeObjectURL(moduleURL);
-
-            if (typeof miner.startMiner !== "function") {
+            if (typeof module.startMining !== "function") {
                 throw new Error(
-                    "В модуле отсутствует функция startMiner"
+                    "Функция startMining не найдена"
                 );
             }
 
-            // Загружаем WASM
-            const wasmResponse = await fetch("/public/miner.wasm");
+            lastTotal = 0;
+            lastTime = Date.now();
 
-            if (!wasmResponse.ok) {
-                throw new Error("miner.wasm не найден");
+            const controller = await module.startMining({
+
+                message: "Casino Miner Demo",
+
+                target: "00000",
+
+                onProgress: function (data) {
+
+                    if (cancelStart) return;
+
+                    if (data.total !== undefined) {
+
+                        const now = Date.now();
+
+                        if (now - lastTime >= 1000) {
+
+                            const elapsed =
+                                (now - lastTime) / 1000;
+
+                            const rate =
+                                (data.total - lastTotal) / elapsed;
+
+                            updateHashrate(rate);
+
+                            lastTotal = data.total;
+                            lastTime = now;
+                        }
+                    }
+
+                    if (data.found) {
+
+                        status("Hash found!");
+
+                        console.log(
+                            "Найден хеш:",
+                            data.hash
+                        );
+
+                    }
+
+                }
+
+            });
+
+            if (cancelStart) {
+
+                controller.stop();
+
+                loading = false;
+
+                return;
             }
 
-            const wasmBytes = await wasmResponse.arrayBuffer();
+            miner = controller;
 
-            // Запускаем модуль
-            await miner.startMiner({
-                wasm: wasmBytes,
-
-                onHashrate: function (value) {
-                    updateHashrate(value);
-                }
-            });
+            running = true;
+            loading = false;
 
             status("Running");
 
@@ -83,38 +123,38 @@
             console.error("Miner error:", error);
 
             running = false;
-
-            status("Error: " + error.message);
+            loading = false;
+            miner = null;
 
             updateHashrate(0);
 
+            status("Error: " + error.message);
+
+            throw error;
         }
 
     };
 
-    // Остановка майнера
+
+    // ОСТАНОВКА
     window.minerStop = function () {
 
-        if (!running) return;
+        cancelStart = true;
 
-        running = false;
+        if (miner) {
 
-        try {
-
-            if (miner &&
-                typeof miner.stopMiner === "function") {
-
-                miner.stopMiner();
-
+            try {
+                miner.stop();
+            } catch (error) {
+                console.error(error);
             }
-
-        } catch (error) {
-
-            console.error(error);
 
         }
 
         miner = null;
+
+        running = false;
+        loading = false;
 
         updateHashrate(0);
 
