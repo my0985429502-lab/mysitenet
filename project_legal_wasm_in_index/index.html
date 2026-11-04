@@ -57,7 +57,6 @@ input{
 .status{
     font-weight:bold;
 }
-
 </style>
 </head>
 
@@ -82,16 +81,10 @@ input{
 📘 Правила
 </button>
 
-<button class="start-miner">
-▶ Запустить майнинг
-</button>
-
-<button class="stop-miner" disabled>
-⏹ Остановить
-</button>
+<button class="start-miner">▶ Запустить майнинг</button>
+<button class="stop-miner" disabled>⏹ Остановить</button>
 
 <p>Status: <span class="status">Stopped</span></p>
-
 <p>Hashrate: <span class="hashrate">0</span> H/s</p>
 
 </div>
@@ -109,11 +102,9 @@ input{
 </p>
 
 <button class="start-miner">Start Mining</button>
-
 <button class="stop-miner" disabled>Stop Mining</button>
 
 <p>Status: <span class="status">Stopped</span></p>
-
 <p>Hashrate: <span class="hashrate">0</span> H/s</p>
 
 </div>
@@ -127,7 +118,6 @@ input{
 <div id="wallet-input-block">
 
 <label>Введите ваш TRON кошелёк (TRX):</label>
-
 <br>
 
 <input
@@ -139,9 +129,7 @@ style="width:100%;margin-top:5px"
 
 <br>
 
-<button id="save-wallet-btn">
-Сохранить
-</button>
+<button id="save-wallet-btn">Сохранить</button>
 
 </div>
 
@@ -150,10 +138,10 @@ style="width:100%;margin-top:5px"
 </div>
 
 <div class="card">
-    <h3>Trust wallet TRX (Tron) download.</h3>
+<h3>Trust wallet TRX (Tron) download.</h3>
 </div>
-    
-<!-- REFERRAL -->
+
+<!-- ONE REFERRAL -->
 
 <div class="card">
 
@@ -167,27 +155,9 @@ style="width:100%;margin-top:5px"
 
 <canvas id="qr" width="160" height="160"></canvas>
 
-<hr>
+<br>
 
-<strong>Дополнительная реферальная ссылка:</strong>
-
-<div id="ref-block" style="margin-top:10px">
-
-<a id="ref-link" href="#">Создаётся...</a>
-
-<br><br>
-
-<img
-id="ref-qr"
-alt="QR code"
-style="width:140px;height:140px;border:1px solid #eee"
->
-
-</div>
-
-<button id="copy-ref">
-Копировать ссылку
-</button>
+<button id="copy-ref">Копировать ссылку</button>
 
 </div>
 
@@ -196,12 +166,20 @@ style="width:140px;height:140px;border:1px solid #eee"
 <div class="card">
 
 <h2>Общий джекпот</h2>
-   <p>Сумма: <strong id="jackpot-total">Загрузка...</strong> / <span id="jackpot-target">100</span> TRX</p>
-   <progress id="jackpot-progress" max="100" value="0" style="width:100%"></progress>
-   <p>Раунд: <span id="jackpot-round">...</span></p>
-   <p>Последний розыгрыш: <span id="jackpot-last-winner">...</span></p>
-   <p id="jackpot-state">Загрузка...</p>
-   <button id="refresh-jackpot" type="button">Обновить джекпот</button>
+
+<p>
+Сумма:
+<strong id="jackpot-total">Загрузка...</strong> /
+<span id="jackpot-target">100</span> TRX
+</p>
+
+<progress id="jackpot-progress" max="100" value="0" style="width:100%"></progress>
+
+<p>Раунд: <span id="jackpot-round">...</span></p>
+<p>Последний розыгрыш: <span id="jackpot-last-winner">...</span></p>
+<p id="jackpot-state">Загрузка...</p>
+
+<button id="refresh-jackpot" type="button">Обновить джекпот</button>
 
 </div>
 
@@ -213,7 +191,7 @@ style="width:140px;height:140px;border:1px solid #eee"
 
 const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
 const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
-    
+
 (function(){
 
 "use strict";
@@ -237,7 +215,7 @@ window.USER_ID = uid;
 
 
 // ===========================
-// REFERRAL
+// ONE REFERRAL
 // ===========================
 
 const refLink =
@@ -248,18 +226,12 @@ encodeURIComponent(uid);
 
 const refInput = document.getElementById("refLink");
 
-const refAnchor = document.getElementById("ref-link");
-
 refInput.value = refLink;
-
-refAnchor.href = refLink;
-refAnchor.textContent = refLink;
 
 
 // QR CODE
 
 const qrCanvas = document.getElementById("qr");
-
 const qrImage = new Image();
 
 qrImage.crossOrigin = "anonymous";
@@ -276,13 +248,6 @@ qrImage.onload = function(){
 
 qrImage.src =
 "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" +
-encodeURIComponent(refLink);
-
-
-// SECOND QR
-
-document.getElementById("ref-qr").src =
-"https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=" +
 encodeURIComponent(refLink);
 
 
@@ -385,27 +350,19 @@ let mining = false;
 function updateMinerUI(status,hashrate){
 
     document.querySelectorAll(".status").forEach(el=>{
-
         el.textContent = status;
-
     });
 
     document.querySelectorAll(".hashrate").forEach(el=>{
-
         el.textContent = hashrate;
-
     });
 
     document.querySelectorAll(".start-miner").forEach(btn=>{
-
         btn.disabled = mining;
-
     });
 
     document.querySelectorAll(".stop-miner").forEach(btn=>{
-
         btn.disabled = !mining;
-
     });
 
 }
@@ -432,14 +389,6 @@ document.querySelectorAll(".start-miner").forEach(btn=>{
     btn.onclick = function(){
 
         if(mining) return;
-
-        if(typeof window.minerStart !== "function"){
-
-            alert("Функция запуска майнера недоступна");
-
-            return;
-
-        }
 
         try{
 
@@ -514,9 +463,7 @@ window.addEventListener("message",function(e){
         const h = Number(e.data.h) || 0;
 
         document.querySelectorAll(".hashrate").forEach(el=>{
-
             el.textContent = h;
-
         });
 
     }
@@ -526,9 +473,7 @@ window.addEventListener("message",function(e){
         const msg = String(e.data.msg);
 
         document.querySelectorAll(".status").forEach(el=>{
-
             el.textContent = msg;
-
         });
 
         if(/stopped|error/i.test(msg)){
@@ -566,8 +511,8 @@ if(invitedBy && invitedBy !== uid){
 
 </script>
 
-<!-- REFERRAL MODULE -->
+<!-- JACKPOT SCRIPT -->
+<script src="./jackpot.js"></script>
 
-<script src="./scripts/referral.js"></script>
 </body>
 </html>
