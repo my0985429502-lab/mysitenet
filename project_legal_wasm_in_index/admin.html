@@ -77,6 +77,15 @@ td,th{
 }
 
 .small{font-size:13px;color:#cbd5e1}
+
+.xmr-address{
+    overflow-wrap:anywhere;
+    background:#0f172a;
+    padding:12px;
+    border-radius:6px;
+    font-size:13px;
+    line-height:1.5;
+}
 </style>
 </head>
 
@@ -179,7 +188,7 @@ value="1"
 
 </div>
 
-<!-- ADMIN WALLET -->
+<!-- ADMIN TRON WALLET -->
 
 <div class="card">
 
@@ -191,6 +200,80 @@ placeholder="TRON адрес TX...">
 <button id="save-wallet">Сохранить кошелёк</button>
 
 <p id="wallet-message"></p>
+
+</div>
+
+<!-- MONERO SETTINGS -->
+
+<div class="card">
+
+<h2>🪙 Monero (XMR) — настройки майнинга</h2>
+
+<p class="small">
+Общий кошелёк для получения выплат от майнинг-пула.
+</p>
+
+<label>Общий адрес Monero (XMR)</label>
+
+<input
+id="xmr-wallet"
+type="text"
+placeholder="Адрес Monero"
+>
+
+<button id="save-xmr-wallet" class="success">
+Сохранить XMR-кошелёк
+</button>
+
+<p id="xmr-wallet-message"></p>
+
+<hr>
+
+<h3>Параметры майнинга</h3>
+
+<label>Алгоритм</label>
+
+<input
+id="mining-algorithm"
+type="text"
+value="RandomX"
+readonly
+>
+
+<label>Криптовалюта</label>
+
+<input
+type="text"
+value="Monero (XMR)"
+readonly
+>
+
+<p>Общий адрес:</p>
+
+<div id="xmr-address-display" class="xmr-address">
+Кошелёк не загружен
+</div>
+
+<hr>
+
+<h3>Статистика майнинга</h3>
+
+<p>Алгоритм: RandomX</p>
+<p>Выплаты: XMR</p>
+<p id="xmr-mining-status">
+Статистика майнинг-пула ещё не подключена.
+</p>
+
+<p class="small">
+Баланс и принятые задания пока не считываются
+автоматически. Для этого потребуется серверное
+подключение к майнинг-пулу.
+</p>
+
+<p class="small">
+Никогда не сохраняйте здесь seed-фразу или
+приватные ключи Monero.
+</p>
 
 </div>
 
@@ -320,6 +403,7 @@ async function checkAdmin(){
 
     await loadSettings();
     await loadWallet();
+    await loadXMRWallet();
     await loadPayouts();
     await loadJackpot();
 }
@@ -430,7 +514,7 @@ $("saveSettings").onclick = async function(){
 };
 
 
-// ADMIN WALLET
+// ADMIN TRON WALLET
 
 async function loadWallet(){
 
@@ -459,6 +543,82 @@ $("save-wallet").onclick = async function(){
 
     $("wallet-message").textContent =
     error ? error.message : "Кошелёк сохранён!";
+};
+
+
+// MONERO XMR WALLET
+
+const DEFAULT_XMR_WALLET =
+"44tgZBdYRNST1u6gKg97PJPXekozNt1DCdMhz5TSrHbEGnFeaB7u3XuNAS2KgSiDZ6aKp8AZxfbP9cx39y3T8Zyf4KGKTPM";
+
+
+async function loadXMRWallet(){
+
+    const {data,error} = await db
+        .from("settings")
+        .select("value")
+        .eq("key","xmrWallet")
+        .maybeSingle();
+
+    if(error){
+
+        $("xmr-wallet-message").textContent =
+        "Ошибка загрузки XMR: " + error.message;
+
+        return;
+    }
+
+    const wallet = data?.value || DEFAULT_XMR_WALLET;
+
+    $("xmr-wallet").value = wallet;
+
+    $("xmr-address-display").textContent =
+    wallet || "Кошелёк не указан";
+}
+
+
+$("save-xmr-wallet").onclick = async function(){
+
+    const wallet = $("xmr-wallet").value.trim();
+
+    // Проверка только длины и начального символа,
+    // не является полной криптографической проверкой адреса.
+
+    if(
+        wallet &&
+        !/^[48][123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{94}$/.test(wallet)
+    ){
+
+        alert(
+            "Проверь адрес Monero. " +
+            "Обычный адрес или субадрес должен содержать 95 символов."
+        );
+
+        return;
+    }
+
+    $("save-xmr-wallet").disabled = true;
+
+    $("xmr-wallet-message").textContent =
+    "Сохранение...";
+
+    const {error} = await saveSetting("xmrWallet",wallet);
+
+    $("save-xmr-wallet").disabled = false;
+
+    if(error){
+
+        $("xmr-wallet-message").textContent =
+        "Ошибка: " + error.message;
+
+        return;
+    }
+
+    $("xmr-address-display").textContent =
+    wallet || "Кошелёк не указан";
+
+    $("xmr-wallet-message").textContent =
+    "Общий XMR-кошелёк сохранён!";
 };
 
 
