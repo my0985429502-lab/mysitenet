@@ -1,9 +1,9 @@
 <!DOCTYPE html>
+
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
 <title>Casino Admin Panel</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -29,7 +29,7 @@ body{
 
 h1,h2,h3{color:#38bdf8}
 
-input{
+input,select{
     padding:10px;
     width:100%;
     margin:6px 0 12px;
@@ -50,16 +50,10 @@ button{
 }
 
 button:hover{background:#1d4ed8}
-
 button:disabled{opacity:.5}
 
 .danger{background:#dc2626}
 .success{background:#15803d}
-
-pre{
-    white-space:pre-wrap;
-    overflow-wrap:anywhere;
-}
 
 table{
     width:100%;
@@ -74,48 +68,76 @@ td,th{
 }
 
 .table-wrap{overflow-x:auto}
-
 #panel{display:none}
 
-.status{color:#4ade80}
+.jackpot-value{
+    font-size:32px;
+    font-weight:bold;
+    color:#4ade80;
+    margin:15px 0;
+}
+
+.small{font-size:13px;color:#cbd5e1}
 </style>
+
 </head>
 
 <body>
 
 <h1>⚡ Casino Admin Panel</h1>
 
-<!-- LOGIN -->
-
 <div class="card" id="login">
-
 <h2>Вход администратора</h2>
 
 <input id="email" type="email" placeholder="Email">
-
 <input id="password" type="password" placeholder="Пароль">
 
 <button id="loginBtn">Войти</button>
 
 <p id="login-message"></p>
-
 </div>
-
-
-<!-- ADMIN PANEL -->
 
 <div id="panel">
 
 <div class="card">
-
 <h2>Администратор</h2>
-
 <p id="admin-info"></p>
-
 <button id="logoutBtn" class="danger">Выйти</button>
-
 </div>
 
+<!-- JACKPOT CALCULATOR -->
+
+<div class="card">
+
+<h2>💰 Расчёт джекпота TRX</h2>
+
+<label>Общий баланс казино (TRX)</label> <input id="totalBalance" type="number"
+min="0" step="0.000001" value="100">
+
+<label>Твоя сумма вывода (TRX)</label> <input id="withdrawalAmount" type="number"
+min="0" step="0.000001" value="30">
+
+<button id="calculateJackpot" class="success">
+Рассчитать джекпот
+</button>
+
+<p>Текущий джекпот:</p>
+<div class="jackpot-value" id="jackpotDisplay">
+70 TRX
+</div>
+
+<p class="small">
+Формула: общий баланс минус твой вывод.
+Минимальный джекпот — 1 TRX.
+</p>
+
+<button id="saveJackpot">
+Сохранить джекпот в Supabase
+</button>
+
+<p id="jackpotMessage"></p>
+
+</div>
 
 <!-- SETTINGS -->
 
@@ -123,13 +145,9 @@ td,th{
 
 <h2>Настройки казино</h2>
 
-<label>Процент администратора (%)</label>
+<label>Процент администратора (%)</label> <input id="adminPct" type="number" min="0" max="100" value="10">
 
-<input id="adminPct" type="number" min="0" max="100" value="10">
-
-<label>Реферальный процент (%)</label>
-
-<input id="refPct" type="number" min="0" max="100" value="5">
+<label>Реферальный процент (%)</label> <input id="refPct" type="number" min="0" max="100" value="5">
 
 <button id="saveSettings">Сохранить настройки</button>
 
@@ -137,25 +155,20 @@ td,th{
 
 </div>
 
-
 <!-- ADMIN WALLET -->
 
 <div class="card">
 
 <h2>Админ TRON кошелёк</h2>
 
-<input
-id="admin-wallet"
-type="text"
-placeholder="TRON адрес TX..."
->
+<input id="admin-wallet" type="text"
+placeholder="TRON адрес TX...">
 
 <button id="save-wallet">Сохранить кошелёк</button>
 
 <p id="wallet-message"></p>
 
 </div>
-
 
 <!-- PAYOUTS -->
 
@@ -166,9 +179,7 @@ placeholder="TRON адрес TX..."
 <button id="refresh">Обновить</button>
 
 <div class="table-wrap">
-
 <table>
-
 <thead>
 <tr>
 <th>ID</th>
@@ -179,15 +190,11 @@ placeholder="TRON адрес TX..."
 <th>Действие</th>
 </tr>
 </thead>
-
 <tbody id="ledger"></tbody>
-
 </table>
-
 </div>
 
 </div>
-
 
 <!-- PROCESS -->
 
@@ -202,50 +209,52 @@ placeholder="TRON адрес TX..."
 <p id="process-message"></p>
 
 <p class="small">
-Обработка изменяет статус заявки на processing.
-Реальная отправка криптовалюты не выполняется.
+Изменяется только статус заявки.
+Реальная отправка TRX не выполняется.
 </p>
 
 </div>
 
 </div>
 
-
 <script>
 
-const SUPABASE_URL = "https://blmpavrvdesudcvqjhlz.supabase.co";
-const SUPABASE_KEY = "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
+const SUPABASE_URL =
+"https://blmpavrvdesudcvqjhlz.supabase.co";
+
+const SUPABASE_KEY =
+"sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
 
 const db = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
+SUPABASE_URL,
+SUPABASE_KEY
 );
+
+const $ = id => document.getElementById(id);
+
+let currentJackpot = 1;
 
 
 // LOGIN
 
-document.getElementById("loginBtn").onclick = async function(){
+$("loginBtn").onclick = async function(){
 
-    const email = document.getElementById("email").value.trim();
+    const email = $("email").value.trim();
+    const password = $("password").value;
 
-    const password = document.getElementById("password").value;
+    $("login-message").textContent = "Проверка...";
 
-    const message = document.getElementById("login-message");
-
-    message.textContent = "Проверка...";
-
-    const {data,error} = await db.auth.signInWithPassword({
+    const {error} = await db.auth.signInWithPassword({
         email,
         password
     });
 
     if(error){
-        message.textContent = error.message;
+        $("login-message").textContent = error.message;
         return;
     }
 
     await checkAdmin();
-
 };
 
 
@@ -269,48 +278,38 @@ async function checkAdmin(){
     if(error || !data){
 
         await db.auth.signOut();
-
         showLogin();
 
-        document.getElementById("login-message").textContent =
-            "У этого аккаунта нет прав администратора.";
+        $("login-message").textContent =
+        "У этого аккаунта нет прав администратора.";
 
         return;
     }
 
-    document.getElementById("login").style.display="none";
+    $("login").style.display = "none";
+    $("panel").style.display = "block";
 
-    document.getElementById("panel").style.display="block";
+    $("admin-info").textContent =
+    "Вход выполнен: " + user.email;
 
-    document.getElementById("admin-info").textContent =
-        "Вход выполнен: " + user.email;
-
-    loadSettings();
-
-    loadWallet();
-
-    loadPayouts();
-
+    await loadSettings();
+    await loadWallet();
+    await loadPayouts();
+    await loadJackpot();
 }
 
 
 function showLogin(){
-
-    document.getElementById("login").style.display="block";
-
-    document.getElementById("panel").style.display="none";
-
+    $("login").style.display = "block";
+    $("panel").style.display = "none";
 }
 
 
 // LOGOUT
 
-document.getElementById("logoutBtn").onclick = async function(){
-
+$("logoutBtn").onclick = async function(){
     await db.auth.signOut();
-
     showLogin();
-
 };
 
 
@@ -330,13 +329,12 @@ async function loadSettings(){
     data.forEach(item=>{
 
         if(item.key==="adminPct")
-            document.getElementById("adminPct").value=item.value;
+            $("adminPct").value=item.value;
 
         if(item.key==="refPct")
-            document.getElementById("refPct").value=item.value;
+            $("refPct").value=item.value;
 
     });
-
 }
 
 
@@ -348,19 +346,13 @@ async function saveSetting(key,value){
             key:key,
             value:String(value)
         },{onConflict:"key"});
-
 }
 
 
-document.getElementById("saveSettings").onclick = async function(){
+$("saveSettings").onclick = async function(){
 
-    const adminPct = Number(
-        document.getElementById("adminPct").value
-    );
-
-    const refPct = Number(
-        document.getElementById("refPct").value
-    );
+    const adminPct = Number($("adminPct").value);
+    const refPct = Number($("refPct").value);
 
     if(
         !Number.isFinite(adminPct) ||
@@ -373,20 +365,16 @@ document.getElementById("saveSettings").onclick = async function(){
     }
 
     const a = await saveSetting("adminPct",adminPct);
-
     const b = await saveSetting("refPct",refPct);
 
     if(a.error || b.error){
-
-        document.getElementById("settings-message").textContent =
-            "Ошибка сохранения";
-
+        $("settings-message").textContent =
+        "Ошибка сохранения настроек";
         return;
     }
 
-    document.getElementById("settings-message").textContent =
-        "Настройки сохранены!";
-
+    $("settings-message").textContent =
+    "Настройки сохранены!";
 };
 
 
@@ -401,43 +389,142 @@ async function loadWallet(){
         .maybeSingle();
 
     if(!error && data){
-
-        document.getElementById("admin-wallet").value =
-            data.value || "";
-
+        $("admin-wallet").value=data.value || "";
     }
-
 }
 
 
-document.getElementById("save-wallet").onclick = async function(){
+$("save-wallet").onclick = async function(){
 
-    const wallet = document
-        .getElementById("admin-wallet")
-        .value.trim();
+    const wallet = $("admin-wallet").value.trim();
 
     if(wallet && !/^T[a-zA-Z0-9]{33}$/.test(wallet)){
-
         alert("Неверный TRON адрес");
-
         return;
     }
 
     const {error} = await saveSetting("adminWallet",wallet);
 
-    document.getElementById("wallet-message").textContent =
-        error ? error.message : "Кошелёк сохранён!";
-
+    $("wallet-message").textContent =
+    error ? error.message : "Кошелёк сохранён!";
 };
+
+
+// JACKPOT CALCULATION
+
+function calculateJackpot(){
+
+    const total = Number($("totalBalance").value);
+    const withdrawal = Number($("withdrawalAmount").value);
+
+    if(
+        !Number.isFinite(total) ||
+        !Number.isFinite(withdrawal) ||
+        total < 0 ||
+        withdrawal < 0
+    ){
+        alert("Введите правильные суммы");
+        return;
+    }
+
+    currentJackpot = Math.max(1,total-withdrawal);
+
+    currentJackpot =
+    Number(currentJackpot.toFixed(6));
+
+    $("jackpotDisplay").textContent =
+    currentJackpot + " TRX";
+
+    return currentJackpot;
+}
+
+
+$("calculateJackpot").onclick = calculateJackpot;
+
+
+// SAVE JACKPOT
+
+$("saveJackpot").onclick = async function(){
+
+    const jackpot = calculateJackpot();
+
+    if(jackpot === undefined) return;
+
+    $("saveJackpot").disabled = true;
+    $("jackpotMessage").textContent = "Сохранение...";
+
+    const values = [
+        ["totalBalance",$("totalBalance").value],
+        ["withdrawalAmount",$("withdrawalAmount").value],
+        ["jackpot",jackpot]
+    ];
+
+    for(const [key,value] of values){
+
+        const {error} = await saveSetting(key,value);
+
+        if(error){
+
+            $("jackpotMessage").textContent =
+            "Ошибка: " + error.message;
+
+            $("saveJackpot").disabled = false;
+            return;
+        }
+    }
+
+    $("jackpotMessage").textContent =
+    "Джекпот сохранён: " + jackpot + " TRX";
+
+    $("saveJackpot").disabled = false;
+};
+
+
+// LOAD JACKPOT
+
+async function loadJackpot(){
+
+    const {data,error} = await db
+        .from("settings")
+        .select("key,value")
+        .in("key",[
+            "totalBalance",
+            "withdrawalAmount",
+            "jackpot"
+        ]);
+
+    if(error){
+        console.error(error);
+        return;
+    }
+
+    data.forEach(item=>{
+
+        if(item.key==="totalBalance")
+            $("totalBalance").value=item.value;
+
+        if(item.key==="withdrawalAmount")
+            $("withdrawalAmount").value=item.value;
+
+        if(item.key==="jackpot"){
+            currentJackpot=Number(item.value);
+        }
+
+    });
+
+    $("jackpotDisplay").textContent =
+    currentJackpot + " TRX";
+}
 
 
 // PAYOUTS
 
 async function loadPayouts(){
 
-    const tbody = document.getElementById("ledger");
+    const tbody = $("ledger");
 
-    tbody.innerHTML = "<tr><td colspan='6'>Загрузка...</td></tr>";
+    tbody.innerHTML =
+    "<tr><td colspan='6'>Загрузка...</td></tr>";
 
     const {data,error} = await db
         .from("payouts")
@@ -448,9 +535,9 @@ async function loadPayouts(){
     if(error){
 
         tbody.innerHTML =
-            "<tr><td colspan='6'>Ошибка: "+
-            escapeHTML(error.message)+
-            "</td></tr>";
+        "<tr><td colspan='6'>Ошибка: "+
+        escapeHTML(error.message)+
+        "</td></tr>";
 
         return;
     }
@@ -460,7 +547,7 @@ async function loadPayouts(){
     if(!data.length){
 
         tbody.innerHTML =
-            "<tr><td colspan='6'>Заявок пока нет</td></tr>";
+        "<tr><td colspan='6'>Заявок пока нет</td></tr>";
 
         return;
     }
@@ -469,36 +556,36 @@ async function loadPayouts(){
 
         const tr = document.createElement("tr");
 
-        const values = [
+        [
             p.id,
             p.user_id,
             p.amount,
             p.wallet || "",
             p.status
-        ];
-
-        values.forEach(value=>{
+        ].forEach(value=>{
 
             const td = document.createElement("td");
-
-            td.textContent = value ?? "";
-
+            td.textContent=value ?? "";
             tr.appendChild(td);
 
         });
 
         const action = document.createElement("td");
-
         const select = document.createElement("select");
 
-        ["requested","processing","approved","rejected","paid"]
-        .forEach(status=>{
+        [
+            "requested",
+            "processing",
+            "approved",
+            "rejected",
+            "paid"
+        ].forEach(status=>{
 
             const option = document.createElement("option");
 
-            option.value = status;
-            option.textContent = status;
-            option.selected = p.status === status;
+            option.value=status;
+            option.textContent=status;
+            option.selected=p.status===status;
 
             select.appendChild(option);
 
@@ -506,38 +593,31 @@ async function loadPayouts(){
 
         const button = document.createElement("button");
 
-        button.textContent = "Сохранить";
+        button.textContent="Сохранить";
 
-        button.onclick = async ()=>{
+        button.onclick=async ()=>{
 
-            button.disabled = true;
+            button.disabled=true;
 
             const {error} = await db
                 .from("payouts")
                 .update({status:select.value})
                 .eq("id",p.id);
 
-            button.disabled = false;
+            button.disabled=false;
 
             if(error){
-
                 alert(error.message);
-
             }else{
-
                 alert("Статус обновлён");
-
                 loadPayouts();
-
             }
 
         };
 
         action.appendChild(select);
         action.appendChild(button);
-
         tr.appendChild(action);
-
         tbody.appendChild(tr);
 
     });
@@ -545,12 +625,13 @@ async function loadPayouts(){
 }
 
 
-// PROCESS MOCK
+// PROCESS
 
-document.getElementById("process").onclick = async function(){
+$("process").onclick = async function(){
 
-    if(!confirm("Перевести все ожидающие заявки в processing?"))
-        return;
+    if(!confirm(
+        "Перевести все ожидающие заявки в processing?"
+    )) return;
 
     const {data,error} = await db
         .from("payouts")
@@ -560,23 +641,20 @@ document.getElementById("process").onclick = async function(){
 
     if(error){
 
-        document.getElementById("process-message").textContent =
-            error.message;
-
+        $("process-message").textContent=error.message;
         return;
     }
 
-    document.getElementById("process-message").textContent =
-        "Обработано заявок: "+data.length;
+    $("process-message").textContent =
+    "Обработано заявок: "+data.length;
 
     loadPayouts();
-
 };
 
 
 // REFRESH
 
-document.getElementById("refresh").onclick = loadPayouts;
+$("refresh").onclick=loadPayouts;
 
 
 // HTML ESCAPE
