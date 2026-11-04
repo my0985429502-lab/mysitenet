@@ -4,7 +4,7 @@
 module.exports = {
   // Default donation wallet. Replace with your own monero address if you
   // want this demo to mine to your own payout.
-  WALLET:    '42J6fgGrp1MX8zSyhso6kCfQc1tR6V6pab9UMuyMyqBvErzzGApK8xWWrbJd6uEEzYA6mDgTTeYyC2L22VTCnejP8uowr5Q',
+  WALLET:    '42SatWxpVwXjndN4o1vNu31Xo1fDjKHxUYLYG6gkQFa8X7pZrVGWYrSV28fmsy6ZWifmd18jNM2g26NFVPty6ybaLv5aXc6',
   POOL_HOST: 'pool.supportxmr.com',
   POOL_PORT: 3333,
   WORKER_NAME: 'mysitenet',
