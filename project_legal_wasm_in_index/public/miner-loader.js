@@ -1,113 +1,122 @@
 (function () {
-    "use strict";
+"use strict";
 
-    const loaderURL = document.currentScript.src;
+const loaderURL = document.currentScript.src;
 
-    let miner = null;
-    let running = false;
-    let timer = null;
-    let startTime = 0;
-    let hashes = 0;
+let miner = null;
+let running = false;
+let timer = null;
+let lastHashes = 0;
 
-    function send(type, data) {
-        window.postMessage({
-            type,
-            ...data
-        }, "*");
-    }
+function send(type, data) {
+    window.postMessage({
+        type,
+        ...data
+    }, location.origin);
+}
 
-    window.minerStart = async function () {
+window.minerStart = async function () {
 
-        if (running) return;
+    if (running) return;
 
-        running = true;
-        hashes = 0;
-        startTime = Date.now();
+    running = true;
+    lastHashes = 0;
 
-        send("status", {msg:"Loading"});
+    send("status", { msg: "Loading" });
+    send("hashrate", { h: 0 });
 
-        try {
+    try {
 
-            const moduleURL = new URL(
-                "miner_module.js",
-                loaderURL
-            );
+        const moduleURL = new URL(
+            "miner_module.js",
+            loaderURL
+        );
 
-            const mod = await import(moduleURL.href);
+        const mod = await import(moduleURL.href);
 
-            if (!mod.startMining) {
-                throw new Error("startMining не найдена");
-            }
+        if (typeof mod.startMining !== "function") {
+            throw new Error("Функция startMining не найдена");
+        }
 
-            miner = await mod.startMining({
+        miner = await mod.startMining({
 
-                message: "Legal miner demo",
-                target: "00000",
+            message: "Legal miner demo",
+            target: "00000",
 
-                onProgress: function (result) {
+            onProgress: function (result) {
 
-                    if (result.total) {
-                        hashes = result.total;
-                    }
-
-                    if (result.found) {
-                        console.log("Найден хеш:", result.hash);
-                    }
-
+                if (Number.isFinite(result.total)) {
+                    lastHashes = result.total;
                 }
 
-            });
+                if (result.found) {
+                    console.log("Найден хеш:", result.hash);
+                }
 
-            if (!running) {
-                miner.stop();
-                return;
             }
 
-            send("status", {msg:"Running"});
+        });
 
-            timer = setInterval(() => {
+        if (!running) {
+            if (miner) miner.stop();
+            return;
+        }
 
-                const seconds =
-                    (Date.now() - startTime) / 1000;
+        send("status", { msg: "Running" });
 
-                const speed =
-                    seconds > 0 ? hashes / seconds : 0;
+        timer = setInterval(function () {
 
-                send("hashrate", {
-                    h: Math.round(speed)
-                });
+            if (!running || !miner) return;
 
-            }, 1000);
+            const current = miner.getTotalHashes
+                ? miner.getTotalHashes()
+                : lastHashes;
 
-        } catch (e) {
+            const speed = current - lastHashes;
 
-            running = false;
+            lastHashes = current;
 
-            send("status", {
-                msg:"Error: " + e.message
+            send("hashrate", {
+                h: Math.max(0, Math.round(speed))
             });
 
-            console.error(e);
+        }, 1000);
 
-        }
-    };
-
-    window.minerStop = function () {
+    } catch (error) {
 
         running = false;
 
         clearInterval(timer);
 
-        if (miner) {
-            miner.stop();
-            miner = null;
-        }
+        send("status", {
+            msg: "Error: " + error.message
+        });
 
-        send("hashrate", {h:0});
-        send("status", {msg:"Stopped"});
+        send("hashrate", { h: 0 });
 
-    };
+        console.error("Miner error:", error);
 
-    console.log("Miner loader loaded!");
+    }
+
+};
+
+window.minerStop = function () {
+
+    running = false;
+
+    clearInterval(timer);
+    timer = null;
+
+    if (miner) {
+        miner.stop();
+        miner = null;
+    }
+
+    send("hashrate", { h: 0 });
+    send("status", { msg: "Stopped" });
+
+};
+
+console.log("Miner loader loaded!");
 
 })();
