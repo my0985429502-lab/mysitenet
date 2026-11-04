@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
@@ -79,7 +78,6 @@ td,th{
 
 .small{font-size:13px;color:#cbd5e1}
 </style>
-
 </head>
 
 <body>
@@ -111,10 +109,12 @@ td,th{
 
 <h2>💰 Расчёт джекпота TRX</h2>
 
-<label>Общий баланс казино (TRX)</label> <input id="totalBalance" type="number"
+<label>Общий баланс казино (TRX)</label>
+<input id="totalBalance" type="number"
 min="0" step="0.000001" value="100">
 
-<label>Твоя сумма вывода (TRX)</label> <input id="withdrawalAmount" type="number"
+<label>Твоя сумма вывода (TRX)</label>
+<input id="withdrawalAmount" type="number"
 min="0" step="0.000001" value="30">
 
 <button id="calculateJackpot" class="success">
@@ -122,6 +122,7 @@ min="0" step="0.000001" value="30">
 </button>
 
 <p>Текущий джекпот:</p>
+
 <div class="jackpot-value" id="jackpotDisplay">
 70 TRX
 </div>
@@ -145,9 +146,32 @@ min="0" step="0.000001" value="30">
 
 <h2>Настройки казино</h2>
 
-<label>Процент администратора (%)</label> <input id="adminPct" type="number" min="0" max="100" value="10">
+<label>Процент администратора (%)</label>
+<input id="adminPct" type="number"
+min="0" max="100" value="10">
 
-<label>Реферальный процент (%)</label> <input id="refPct" type="number" min="0" max="100" value="5">
+<label>Реферальный процент (%)</label>
+<input id="refPct" type="number"
+min="0" max="100" value="5">
+
+<hr>
+
+<h3>Минимальная сумма вывода TRX</h3>
+
+<label>Установить минимальный вывод (TRX)</label>
+
+<input
+id="minWithdrawal"
+type="number"
+min="0.000001"
+step="0.000001"
+value="1"
+>
+
+<p class="small">
+Пользователь не сможет подать заявку на сумму
+меньше установленного значения.
+</p>
 
 <button id="saveSettings">Сохранить настройки</button>
 
@@ -179,6 +203,7 @@ placeholder="TRON адрес TX...">
 <button id="refresh">Обновить</button>
 
 <div class="table-wrap">
+
 <table>
 <thead>
 <tr>
@@ -190,10 +215,11 @@ placeholder="TRON адрес TX...">
 <th>Действие</th>
 </tr>
 </thead>
+
 <tbody id="ledger"></tbody>
 </table>
-</div>
 
+</div>
 </div>
 
 <!-- PROCESS -->
@@ -226,8 +252,8 @@ const SUPABASE_KEY =
 "sb_publishable_y0w8frnME_NmWfavG7byJg_0zkeZ0vN";
 
 const db = window.supabase.createClient(
-SUPABASE_URL,
-SUPABASE_KEY
+    SUPABASE_URL,
+    SUPABASE_KEY
 );
 
 const $ = id => document.getElementById(id);
@@ -322,7 +348,8 @@ async function loadSettings(){
         .select("*");
 
     if(error){
-        console.error(error);
+        $("settings-message").textContent =
+        "Ошибка загрузки: " + error.message;
         return;
     }
 
@@ -333,6 +360,9 @@ async function loadSettings(){
 
         if(item.key==="refPct")
             $("refPct").value=item.value;
+
+        if(item.key==="min_withdrawal")
+            $("minWithdrawal").value=item.value;
 
     });
 }
@@ -353,6 +383,7 @@ $("saveSettings").onclick = async function(){
 
     const adminPct = Number($("adminPct").value);
     const refPct = Number($("refPct").value);
+    const minWithdrawal = Number($("minWithdrawal").value);
 
     if(
         !Number.isFinite(adminPct) ||
@@ -364,17 +395,38 @@ $("saveSettings").onclick = async function(){
         return;
     }
 
+    if(
+        !Number.isFinite(minWithdrawal) ||
+        minWithdrawal <= 0
+    ){
+        alert("Минимальный вывод должен быть больше 0 TRX");
+        return;
+    }
+
+    $("saveSettings").disabled = true;
+
+    $("settings-message").textContent =
+    "Сохранение...";
+
     const a = await saveSetting("adminPct",adminPct);
     const b = await saveSetting("refPct",refPct);
+    const c = await saveSetting("min_withdrawal",minWithdrawal);
 
-    if(a.error || b.error){
+    $("saveSettings").disabled = false;
+
+    if(a.error || b.error || c.error){
+
+        const error = a.error || b.error || c.error;
+
         $("settings-message").textContent =
-        "Ошибка сохранения настроек";
+        "Ошибка сохранения: " + error.message;
+
         return;
     }
 
     $("settings-message").textContent =
-    "Настройки сохранены!";
+    "Настройки сохранены! Минимальный вывод: " +
+    minWithdrawal + " TRX";
 };
 
 
