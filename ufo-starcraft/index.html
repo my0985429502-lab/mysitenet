@@ -285,6 +285,7 @@ let sb = null;
 let currentUser = null;
 let cloudReady = false;
 let backupImported = false;
+let offlineApplied = false;
 
 function newPet(){
     return {
@@ -299,6 +300,7 @@ function newPet(){
         happiness:80,
         water:80,
         strength:0,
+        lastUpdate:new Date().toISOString(),
         log:["Начало эксперимента. Обнаружено космическое яйцо."]
     };
 }
@@ -357,7 +359,78 @@ function escapeHTML(text){
     }[c]));
 }
 
+// =================================
+// РАСЧЁТ ВРЕМЕНИ ОТСУТСТВИЯ
+// =================================
+
+function applyOfflineTime(referenceTime){
+
+    if(offlineApplied) return;
+
+    const now=Date.now();
+
+    let previous=pet.lastUpdate
+        ? new Date(pet.lastUpdate).getTime()
+        : NaN;
+
+    // Для старых сохранений берём время последнего
+    // облачного сохранения Supabase.
+    if(!Number.isFinite(previous) && referenceTime){
+        previous=new Date(referenceTime).getTime();
+    }
+
+    if(!Number.isFinite(previous)){
+        previous=now;
+    }
+
+    let elapsed=now-previous;
+
+    if(elapsed<0) elapsed=0;
+
+    // Ограничение на случай повреждённой даты.
+    elapsed=Math.min(elapsed,365*24*60*60*1000);
+
+    const hours=elapsed/3600000;
+
+    if(hours>0){
+
+        pet.hunger=clamp(pet.hunger-2*hours);
+        pet.water=clamp(pet.water-2*hours);
+        pet.energy=clamp(pet.energy-hours);
+        pet.happiness=clamp(pet.happiness-hours);
+
+        // Здоровье ухудшается, если закончились
+        // питание или вода.
+        if(pet.hunger<=0 || pet.water<=0){
+            pet.health=clamp(pet.health-2*hours);
+        }
+
+        pet.age=(Number(pet.age)||0)+hours/24;
+
+        if(!Array.isArray(pet.log)){
+            pet.log=[];
+        }
+
+        pet.log.unshift(
+            "⏰ Время отсутствия: "+
+            hours.toFixed(2)+
+            " часа. Показатели организма пересчитаны."
+        );
+
+        pet.log=pet.log.slice(0,40);
+    }
+
+    pet.lastUpdate=new Date().toISOString();
+
+    offlineApplied=true;
+
+    localStorage.setItem(KEY,JSON.stringify(pet));
+}
+
+// =================================
 // ЖУРНАЛ
+// =================================
+
 function log(message){
 
     if(!Array.isArray(pet.log)){
@@ -373,8 +446,15 @@ function log(message){
     render();
 }
 
+// =================================
 // СОХРАНЕНИЕ
-async function saveGame(){
+// =================================
+
+async function saveGame(updateTime=true){
+
+    if(updateTime){
+        pet.lastUpdate=new Date().toISOString();
+    }
 
     localStorage.setItem(KEY,JSON.stringify(pet));
 
@@ -409,7 +489,10 @@ async function saveGame(){
     }
 }
 
+// =================================
 // ИМЯ
+// =================================
+
 function saveName(){
 
     const value=document.getElementById("petName").value.trim();
@@ -420,10 +503,13 @@ function saveName(){
 
     log("Организм получил имя: "+value);
 
-    saveGame();
+    saveGame(true);
 }
 
+// =================================
 // УХОД
+// =================================
+
 function action(type){
 
     if(pet.health<=0){
@@ -485,12 +571,17 @@ function action(type){
 
     evolveCheck();
 
+    pet.lastUpdate=new Date().toISOString();
+
     render();
 
-    saveGame();
+    saveGame(true);
 }
 
+// =================================
 // ЭВОЛЮЦИЯ
+// =================================
+
 function evolveCheck(){
 
     if(pet.stage===0 && pet.growth>=30){
@@ -515,10 +606,13 @@ function evolve(){
 
     render();
 
-    saveGame();
+    saveGame(true);
 }
 
+// =================================
 // ОТОБРАЖЕНИЕ
+// =================================
+
 function render(){
 
     pet.stage=Math.max(0,Math.min(3,Number(pet.stage)||0));
@@ -531,7 +625,8 @@ function render(){
 
     document.getElementById("petDescription").textContent=s.description;
 
-    document.getElementById("age").textContent=pet.age;
+    document.getElementById("age").textContent=
+        (Number(pet.age)||0).toFixed(2);
 
     document.getElementById("growth").textContent=pet.growth;
 
@@ -541,7 +636,7 @@ function render(){
         statInfo.map(([key,name])=>`
         <div class="stat">
             <div class="stat-name">
-                ${name}: ${pet[key]}%
+                ${name}: ${Number(pet[key]).toFixed(1)}%
             </div>
             <div class="bar">
                 <div class="fill"
@@ -561,7 +656,10 @@ function render(){
         ).join("");
 }
 
+// =================================
 // НОВЫЙ ПИТОМЕЦ
+// =================================
+
 function resetGame(){
 
     if(!confirm("Создать нового питомца?")) return;
@@ -570,12 +668,15 @@ function resetGame(){
 
     render();
 
-    saveGame();
+    saveGame(true);
 
     log("Создан новый организм.");
 }
 
-// РЕЗЕРВНАЯ КОПИЯ — СКАЧАТЬ
+// =================================
+// РЕЗЕРВНАЯ КОПИЯ
+// =================================
+
 function exportBackup(){
 
     const backup={
@@ -608,7 +709,10 @@ function exportBackup(){
         "Резервная копия скачана!";
 }
 
-// ПРОВЕРКА И ВОССТАНОВЛЕНИЕ ФАЙЛА
+// =================================
+// ВОССТАНОВЛЕНИЕ
+// =================================
+
 async function importBackup(){
 
     const input=document.getElementById("backupFile");
@@ -623,18 +727,14 @@ async function importBackup(){
 
     try{
 
-        // Проверяем расширение
         if(!file.name.toLowerCase().endsWith(".json")){
             throw new Error("Выбран не JSON-файл.");
         }
 
-        // Читаем файл
         const text=await file.text();
 
-        // Проверяем формат JSON
         const backup=JSON.parse(text);
 
-        // Проверяем приложение
         if(
             backup.application!=="UFO-StarCraft" ||
             !backup.pet ||
@@ -645,7 +745,6 @@ async function importBackup(){
 
         const p=backup.pet;
 
-        // Проверяем данные
         if(
             typeof p.name!=="string" ||
             !Number.isFinite(Number(p.stage)) ||
@@ -675,10 +774,8 @@ async function importBackup(){
             return;
         }
 
-        // Запоминаем, что идёт восстановление
         backupImported=true;
 
-        // Восстанавливаем
         pet={
             ...newPet(),
             ...p,
@@ -691,22 +788,19 @@ async function importBackup(){
             pet[field]=clamp(pet[field]);
         });
 
-        // Сохраняем локально
+        // Восстановленная копия начинает отсчёт с момента импорта.
+        pet.lastUpdate=new Date().toISOString();
+        offlineApplied=true;
+
         localStorage.setItem(KEY,JSON.stringify(pet));
 
-        // Обновляем экран
         render();
-
-        // Если облако готово — сохраняем под новым ID
-        if(cloudReady){
-            await saveGame();
-        }
 
         status.textContent="Питомец успешно восстановлен!";
 
         log("Восстановлена резервная копия.");
 
-        saveGame();
+        await saveGame(true);
 
         input.value="";
 
@@ -720,7 +814,10 @@ async function importBackup(){
     }
 }
 
-// АНОНИМНЫЙ ВХОД И ОБЛАКО
+// =================================
+// АНОНИМНЫЙ ВХОД И SUPABASE
+// =================================
+
 async function initCloud(){
 
     try{
@@ -764,7 +861,7 @@ async function initCloud(){
         document.getElementById("playerId").textContent=
             currentUser.id;
 
-        // Регистрируем игрока
+        // Регистрация игрока
         const {error:userError}=await sb
             .from("anonymous_users")
             .upsert({
@@ -774,16 +871,17 @@ async function initCloud(){
 
         if(userError) throw userError;
 
-        // Загружаем облачного питомца
+        // Загружаем питомца и дату последнего облачного сохранения
         const {data:cloudPet,error:petError}=await sb
             .from("pets")
-            .select("name,state")
+            .select("name,state,updated_at")
             .eq("user_id",currentUser.id)
             .maybeSingle();
 
         if(petError) throw petError;
 
-        // Не перезаписываем восстановленную копию
+        let cloudDate=null;
+
         if(cloudPet && cloudPet.state && !backupImported){
 
             pet={
@@ -796,20 +894,32 @@ async function initCloud(){
             if(!Array.isArray(pet.log)){
                 pet.log=[];
             }
+
+            // Старые сохранения могут не иметь lastUpdate.
+            cloudDate=cloudPet.updated_at;
         }
+
+        // ВАЖНО: рассчитываем отсутствие ДО сохранения в облако.
+        applyOfflineTime(cloudDate);
 
         cloudReady=true;
 
         render();
 
-        // Записываем текущего питомца в облако
-        await saveGame();
+        await saveGame(true);
 
         log("Облачное сохранение подключено.");
 
     }catch(error){
 
         console.error("Supabase:",error);
+
+        // Если облако недоступно, используем локальное время.
+        applyOfflineTime(null);
+
+        render();
+
+        localStorage.setItem(KEY,JSON.stringify(pet));
 
         document.getElementById("playerId").textContent=
             "Локальный режим";
@@ -818,10 +928,14 @@ async function initCloud(){
     }
 }
 
+// =================================
 // ЗАПУСК
+// =================================
+
 render();
 
-saveGame();
+// Не обновляем время при первоначальном локальном сохранении!
+saveGame(false);
 
 initCloud();
 
