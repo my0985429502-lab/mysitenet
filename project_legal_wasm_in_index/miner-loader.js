@@ -11,7 +11,7 @@
 
     function send(type, data) {
         window.postMessage({
-            type: type,
+            type,
             ...data
         }, "*");
     }
@@ -26,7 +26,6 @@
         });
     }
 
-    // ЗАПУСК
     window.minerStart = async function () {
 
         if (running || loading) return;
@@ -39,20 +38,14 @@
 
         try {
 
-            // Загружаем настоящий JS-модуль
             const module = await import(
                 "/public/miner_module.js"
             );
 
-            if (cancelStart) {
-                loading = false;
-                return;
-            }
+            if (cancelStart) return;
 
             if (typeof module.startMining !== "function") {
-                throw new Error(
-                    "Функция startMining не найдена"
-                );
+                throw new Error("startMining не найдена");
             }
 
             lastTotal = 0;
@@ -88,78 +81,54 @@
                     }
 
                     if (data.found) {
-
-                        status("Hash found!");
-
-                        console.log(
-                            "Найден хеш:",
-                            data.hash
-                        );
-
+                        status("Hash found");
+                        console.log("Hash:", data.hash);
                     }
-
                 }
-
             });
 
             if (cancelStart) {
-
                 controller.stop();
-
-                loading = false;
-
                 return;
             }
 
             miner = controller;
-
             running = true;
-            loading = false;
 
             status("Running");
 
         } catch (error) {
 
-            console.error("Miner error:", error);
+            console.error(error);
 
             running = false;
-            loading = false;
             miner = null;
 
+            status("Error: " + error.message);
             updateHashrate(0);
 
-            status("Error: " + error.message);
-
             throw error;
-        }
 
+        } finally {
+
+            loading = false;
+
+        }
     };
 
-
-    // ОСТАНОВКА
     window.minerStop = function () {
 
         cancelStart = true;
 
         if (miner) {
-
-            try {
-                miner.stop();
-            } catch (error) {
-                console.error(error);
-            }
-
+            miner.stop();
         }
 
         miner = null;
-
         running = false;
-        loading = false;
 
         updateHashrate(0);
-
         status("Stopped");
-
     };
 
 })();
