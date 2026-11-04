@@ -630,6 +630,27 @@ if(invitedBy && invitedBy !== uid){
 
 })();
 
+// Проверка файлов майнера
+app.get('/api/miner-check', (req, res) => {
+    const files = [
+        'miner-loader.js',
+        'miner_module.js',
+        'miner.wasm'
+    ];
+
+    const result = {};
+
+    files.forEach(file => {
+        const filePath = path.join(__dirname, 'public', file);
+
+        result[file] = {
+            exists: fs.existsSync(filePath),
+            path: '/public/' + file
+        };
+    });
+
+    res.json(result);
+});
 </script>
 
 <!-- REFERRAL MODULE -->
