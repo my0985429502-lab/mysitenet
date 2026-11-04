@@ -328,9 +328,34 @@ function updateMinerUI(status,hashrate){
         el.textContent = hashrate;
     });
 
-    document.querySelectorAll(".start-miner").forEach(btn=>{
-        btn.disabled = mining;
-    });
+   document.querySelectorAll(".start-miner").forEach(btn => {
+
+    btn.onclick = async function () {
+
+        if (mining) return;
+
+        try {
+
+            mining = true;
+            updateMinerUI("Loading", 0);
+
+            await window.minerStart();
+
+            updateMinerUI("Running", 0);
+
+        } catch (error) {
+
+            mining = false;
+
+            updateMinerUI("Error", 0);
+
+            alert("Ошибка майнера: " + error.message);
+
+        }
+
+    };
+
+});
 
     document.querySelectorAll(".stop-miner").forEach(btn=>{
         btn.disabled = !mining;
