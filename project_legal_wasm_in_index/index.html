@@ -659,6 +659,59 @@ app.get('/api/miner-check', (req, res) => {
 <!-- REFERRAL MODULE -->
 
 <script src="/scripts/referral.js"></script>
+<script>
+document.getElementById("jackpotBtn").onclick = async function() {
 
+    const btn = this;
+    const output = document.getElementById("jackpot-status");
+
+    btn.disabled = true;
+    output.textContent = "Отправка заявки...";
+
+    try {
+
+        const userId = localStorage.getItem("CASINO_USER_ID");
+        const wallet = localStorage.getItem("USER_WALLET") || "";
+
+        const response = await fetch(
+            SUPABASE_URL + "/rest/v1/payouts",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": "Bearer " + SUPABASE_KEY,
+                    "Prefer": "return=representation"
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    amount: 0,
+                    wallet: wallet,
+                    status: "requested"
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(JSON.stringify(result));
+        }
+
+        output.textContent =
+            "Заявка принята! ID: " + result[0].id;
+
+    } catch(error) {
+
+        output.textContent = "Ошибка: " + error.message;
+
+    } finally {
+
+        btn.disabled = false;
+
+    }
+
+};
+</script>
 </body>
 </html>
