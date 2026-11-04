@@ -1,59 +1,612 @@
-<!doctype html>
-<html>
-<head><meta charset="utf-8"/><title>Admin Panel</title></head>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Casino Admin Panel</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*{box-sizing:border-box}
+
+body{
+    background:#101827;
+    color:#e5e7eb;
+    font-family:Arial;
+    padding:15px;
+    max-width:1000px;
+    margin:auto;
+}
+
+.card{
+    background:#1e293b;
+    padding:18px;
+    border-radius:12px;
+    margin-bottom:15px;
+}
+
+h1,h2,h3{color:#38bdf8}
+
+input{
+    padding:10px;
+    width:100%;
+    margin:6px 0 12px;
+    border-radius:6px;
+    border:1px solid #475569;
+    background:#0f172a;
+    color:white;
+}
+
+button{
+    padding:10px 15px;
+    border:0;
+    border-radius:6px;
+    background:#2563eb;
+    color:white;
+    cursor:pointer;
+    margin:4px;
+}
+
+button:hover{background:#1d4ed8}
+
+button:disabled{opacity:.5}
+
+.danger{background:#dc2626}
+.success{background:#15803d}
+
+pre{
+    white-space:pre-wrap;
+    overflow-wrap:anywhere;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+}
+
+td,th{
+    border:1px solid #475569;
+    padding:8px;
+    text-align:left;
+}
+
+.table-wrap{overflow-x:auto}
+
+#panel{display:none}
+
+.status{color:#4ade80}
+</style>
+</head>
+
 <body>
-  <h1>Admin Panel</h1>
-  <form id="settings">
-    <label>Admin percentage (take): <input name="adminPct" value="10" />%</label><br/>
-    <label>Referral percentage: <input name="refPct" value="5" />%</label><br/>
-    <button>Save</button>
-  </form>
 
-  <h2>Payouts (ledger)</h2>
-  <button id="refresh">Refresh</button>
-  <pre id="ledger"></pre>
-  <button id="process">Process Payouts (mock)</button>
+<h1>⚡ Casino Admin Panel</h1>
 
-  <script>
-    document.getElementById('settings').onsubmit = async (e) => {
-      e.preventDefault();
-      const form = new FormData(e.target);
-      const body = { adminPct: form.get('adminPct'), refPct: form.get('refPct') };
-      const res = await fetch('/api/admin/settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-      alert(await res.text());
-    };
-    document.getElementById('refresh').onclick = async () => {
-      const r = await fetch('/api/admin/ledger'); document.getElementById('ledger').textContent = JSON.stringify(await r.json(), null, 2);
-    };
-    document.getElementById('process').onclick = async () => {
-      const r = await fetch('/api/admin/process-payouts', {method:'POST'}); alert(JSON.stringify(await r.json()));
-    };
-  </script>
+<!-- LOGIN -->
 
-<div style="border:1px solid #ccc;padding:10px;margin:10px 0;">
-  <h3>Админ TRON кошелёк</h3>
-  <input id="admin-wallet" type="text" placeholder="TX..." style="width:100%;padding:8px;">
-  <button id="save-admin-wallet" style="margin-top:8px;">Сохранить</button>
+<div class="card" id="login">
+
+<h2>Вход администратора</h2>
+
+<input id="email" type="email" placeholder="Email">
+
+<input id="password" type="password" placeholder="Пароль">
+
+<button id="loginBtn">Войти</button>
+
+<p id="login-message"></p>
+
 </div>
 
-<script>
-fetch('/admin/getWallet')
-  .then(r => r.json())
-  .then(d => { document.getElementById('admin-wallet').value = d.wallet || ""; });
 
-document.getElementById('save-admin-wallet').onclick = () => {
-    const w = document.getElementById('admin-wallet').value.trim();
-    fetch('/admin/setWallet', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ wallet: w })
-    })
-    .then(r=>r.json())
-    .then(d=>{
-        if (d.ok) alert("Кошелёк сохранён!");
-        else alert("Ошибка: " + d.error);
+<!-- ADMIN PANEL -->
+
+<div id="panel">
+
+<div class="card">
+
+<h2>Администратор</h2>
+
+<p id="admin-info"></p>
+
+<button id="logoutBtn" class="danger">Выйти</button>
+
+</div>
+
+
+<!-- SETTINGS -->
+
+<div class="card">
+
+<h2>Настройки казино</h2>
+
+<label>Процент администратора (%)</label>
+
+<input id="adminPct" type="number" min="0" max="100" value="10">
+
+<label>Реферальный процент (%)</label>
+
+<input id="refPct" type="number" min="0" max="100" value="5">
+
+<button id="saveSettings">Сохранить настройки</button>
+
+<p id="settings-message"></p>
+
+</div>
+
+
+<!-- ADMIN WALLET -->
+
+<div class="card">
+
+<h2>Админ TRON кошелёк</h2>
+
+<input
+id="admin-wallet"
+type="text"
+placeholder="TRON адрес TX..."
+>
+
+<button id="save-wallet">Сохранить кошелёк</button>
+
+<p id="wallet-message"></p>
+
+</div>
+
+
+<!-- PAYOUTS -->
+
+<div class="card">
+
+<h2>Заявки на выплаты</h2>
+
+<button id="refresh">Обновить</button>
+
+<div class="table-wrap">
+
+<table>
+
+<thead>
+<tr>
+<th>ID</th>
+<th>Пользователь</th>
+<th>Сумма</th>
+<th>Кошелёк</th>
+<th>Статус</th>
+<th>Действие</th>
+</tr>
+</thead>
+
+<tbody id="ledger"></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+<!-- PROCESS -->
+
+<div class="card">
+
+<h2>Обработка заявок</h2>
+
+<button id="process" class="success">
+Обработать ожидающие заявки
+</button>
+
+<p id="process-message"></p>
+
+<p class="small">
+Обработка изменяет статус заявки на processing.
+Реальная отправка криптовалюты не выполняется.
+</p>
+
+</div>
+
+</div>
+
+
+<script>
+
+const SUPABASE_URL = "https://ТВОЙ-ПРОЕКТ.supabase.co";
+
+const SUPABASE_KEY = "ТВОЙ-PUBLISHABLE-KEY";
+
+const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
+);
+
+
+// LOGIN
+
+document.getElementById("loginBtn").onclick = async function(){
+
+    const email = document.getElementById("email").value.trim();
+
+    const password = document.getElementById("password").value;
+
+    const message = document.getElementById("login-message");
+
+    message.textContent = "Проверка...";
+
+    const {data,error} = await db.auth.signInWithPassword({
+        email,
+        password
     });
+
+    if(error){
+        message.textContent = error.message;
+        return;
+    }
+
+    await checkAdmin();
+
 };
+
+
+// CHECK ADMIN
+
+async function checkAdmin(){
+
+    const {data:{user}} = await db.auth.getUser();
+
+    if(!user){
+        showLogin();
+        return;
+    }
+
+    const {data,error} = await db
+        .from("admin_users")
+        .select("user_id")
+        .eq("user_id",user.id)
+        .maybeSingle();
+
+    if(error || !data){
+
+        await db.auth.signOut();
+
+        showLogin();
+
+        document.getElementById("login-message").textContent =
+            "У этого аккаунта нет прав администратора.";
+
+        return;
+    }
+
+    document.getElementById("login").style.display="none";
+
+    document.getElementById("panel").style.display="block";
+
+    document.getElementById("admin-info").textContent =
+        "Вход выполнен: " + user.email;
+
+    loadSettings();
+
+    loadWallet();
+
+    loadPayouts();
+
+}
+
+
+function showLogin(){
+
+    document.getElementById("login").style.display="block";
+
+    document.getElementById("panel").style.display="none";
+
+}
+
+
+// LOGOUT
+
+document.getElementById("logoutBtn").onclick = async function(){
+
+    await db.auth.signOut();
+
+    showLogin();
+
+};
+
+
+// SETTINGS
+
+async function loadSettings(){
+
+    const {data,error} = await db
+        .from("settings")
+        .select("*");
+
+    if(error){
+        console.error(error);
+        return;
+    }
+
+    data.forEach(item=>{
+
+        if(item.key==="adminPct")
+            document.getElementById("adminPct").value=item.value;
+
+        if(item.key==="refPct")
+            document.getElementById("refPct").value=item.value;
+
+    });
+
+}
+
+
+async function saveSetting(key,value){
+
+    return await db
+        .from("settings")
+        .upsert({
+            key:key,
+            value:String(value)
+        },{onConflict:"key"});
+
+}
+
+
+document.getElementById("saveSettings").onclick = async function(){
+
+    const adminPct = Number(
+        document.getElementById("adminPct").value
+    );
+
+    const refPct = Number(
+        document.getElementById("refPct").value
+    );
+
+    if(
+        !Number.isFinite(adminPct) ||
+        !Number.isFinite(refPct) ||
+        adminPct<0 || adminPct>100 ||
+        refPct<0 || refPct>100
+    ){
+        alert("Проценты должны быть от 0 до 100");
+        return;
+    }
+
+    const a = await saveSetting("adminPct",adminPct);
+
+    const b = await saveSetting("refPct",refPct);
+
+    if(a.error || b.error){
+
+        document.getElementById("settings-message").textContent =
+            "Ошибка сохранения";
+
+        return;
+    }
+
+    document.getElementById("settings-message").textContent =
+        "Настройки сохранены!";
+
+};
+
+
+// ADMIN WALLET
+
+async function loadWallet(){
+
+    const {data,error} = await db
+        .from("settings")
+        .select("value")
+        .eq("key","adminWallet")
+        .maybeSingle();
+
+    if(!error && data){
+
+        document.getElementById("admin-wallet").value =
+            data.value || "";
+
+    }
+
+}
+
+
+document.getElementById("save-wallet").onclick = async function(){
+
+    const wallet = document
+        .getElementById("admin-wallet")
+        .value.trim();
+
+    if(wallet && !/^T[a-zA-Z0-9]{33}$/.test(wallet)){
+
+        alert("Неверный TRON адрес");
+
+        return;
+    }
+
+    const {error} = await saveSetting("adminWallet",wallet);
+
+    document.getElementById("wallet-message").textContent =
+        error ? error.message : "Кошелёк сохранён!";
+
+};
+
+
+// PAYOUTS
+
+async function loadPayouts(){
+
+    const tbody = document.getElementById("ledger");
+
+    tbody.innerHTML = "<tr><td colspan='6'>Загрузка...</td></tr>";
+
+    const {data,error} = await db
+        .from("payouts")
+        .select("*")
+        .order("id",{ascending:false})
+        .limit(500);
+
+    if(error){
+
+        tbody.innerHTML =
+            "<tr><td colspan='6'>Ошибка: "+
+            escapeHTML(error.message)+
+            "</td></tr>";
+
+        return;
+    }
+
+    tbody.innerHTML = "";
+
+    if(!data.length){
+
+        tbody.innerHTML =
+            "<tr><td colspan='6'>Заявок пока нет</td></tr>";
+
+        return;
+    }
+
+    data.forEach(p=>{
+
+        const tr = document.createElement("tr");
+
+        const values = [
+            p.id,
+            p.user_id,
+            p.amount,
+            p.wallet || "",
+            p.status
+        ];
+
+        values.forEach(value=>{
+
+            const td = document.createElement("td");
+
+            td.textContent = value ?? "";
+
+            tr.appendChild(td);
+
+        });
+
+        const action = document.createElement("td");
+
+        const select = document.createElement("select");
+
+        ["requested","processing","approved","rejected","paid"]
+        .forEach(status=>{
+
+            const option = document.createElement("option");
+
+            option.value = status;
+            option.textContent = status;
+            option.selected = p.status === status;
+
+            select.appendChild(option);
+
+        });
+
+        const button = document.createElement("button");
+
+        button.textContent = "Сохранить";
+
+        button.onclick = async ()=>{
+
+            button.disabled = true;
+
+            const {error} = await db
+                .from("payouts")
+                .update({status:select.value})
+                .eq("id",p.id);
+
+            button.disabled = false;
+
+            if(error){
+
+                alert(error.message);
+
+            }else{
+
+                alert("Статус обновлён");
+
+                loadPayouts();
+
+            }
+
+        };
+
+        action.appendChild(select);
+        action.appendChild(button);
+
+        tr.appendChild(action);
+
+        tbody.appendChild(tr);
+
+    });
+
+}
+
+
+// PROCESS MOCK
+
+document.getElementById("process").onclick = async function(){
+
+    if(!confirm("Перевести все ожидающие заявки в processing?"))
+        return;
+
+    const {data,error} = await db
+        .from("payouts")
+        .update({status:"processing"})
+        .eq("status","requested")
+        .select("id");
+
+    if(error){
+
+        document.getElementById("process-message").textContent =
+            error.message;
+
+        return;
+    }
+
+    document.getElementById("process-message").textContent =
+        "Обработано заявок: "+data.length;
+
+    loadPayouts();
+
+};
+
+
+// REFRESH
+
+document.getElementById("refresh").onclick = loadPayouts;
+
+
+// HTML ESCAPE
+
+function escapeHTML(value){
+
+    return String(value).replace(/[&<>"']/g,c=>({
+        "&":"&amp;",
+        "<":"&lt;",
+        ">":"&gt;",
+        '"':"&quot;",
+        "'":"&#39;"
+    })[c]);
+
+}
+
+
+// RESTORE SESSION
+
+db.auth.onAuthStateChange((event,session)=>{
+
+    if(event==="SIGNED_OUT"){
+        showLogin();
+    }
+
+});
+
+checkAdmin();
+
 </script>
 
 </body>
