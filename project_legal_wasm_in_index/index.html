@@ -600,6 +600,16 @@ document.getElementById("jackpotBtn").onclick = async function() {
     const btn = this;
     const output = document.getElementById("jackpot-status");
 
+    // Проверяем, есть ли выигрыш
+    const jackpotAmount = Number(
+        localStorage.getItem("JACKPOT_AMOUNT") || 0
+    );
+
+    if (jackpotAmount <= 0) {
+        output.textContent = "Нет выигрыша. Запрос выплаты невозможен.";
+        return;
+    }
+
     btn.disabled = true;
     output.textContent = "Отправка заявки...";
 
@@ -607,6 +617,14 @@ document.getElementById("jackpotBtn").onclick = async function() {
 
         const userId = localStorage.getItem("CASINO_USER_ID");
         const wallet = localStorage.getItem("USER_WALLET") || "";
+
+        if (!userId) {
+            throw new Error("Не найден ID пользователя");
+        }
+
+        if (!wallet) {
+            throw new Error("Сначала сохраните TRON-кошелёк");
+        }
 
         const response = await fetch(
             SUPABASE_URL + "/rest/v1/payouts",
@@ -620,7 +638,7 @@ document.getElementById("jackpotBtn").onclick = async function() {
                 },
                 body: JSON.stringify({
                     user_id: userId,
-                    amount: 0,
+                    amount: jackpotAmount,
                     wallet: wallet,
                     status: "requested"
                 })
@@ -633,8 +651,7 @@ document.getElementById("jackpotBtn").onclick = async function() {
             throw new Error(JSON.stringify(result));
         }
 
-        output.textContent =
-            "Заявка принята! ID: " + result[0].id;
+        output.textContent = "Заявка принята! ID: " + result[0].id;
 
     } catch(error) {
 
@@ -645,7 +662,6 @@ document.getElementById("jackpotBtn").onclick = async function() {
         btn.disabled = false;
 
     }
-
 };
 </script>
 </body>
