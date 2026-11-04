@@ -546,74 +546,6 @@ window.addEventListener("message",function(e){
 
 
 // ===========================
-// JACKPOT
-// ===========================
-
-document.getElementById("jackpotBtn").onclick = async function(){
-
-    const btn = this;
-
-    const output =
-    document.getElementById("jackpot-status");
-
-    btn.disabled = true;
-
-    output.textContent = "Отправка запроса...";
-
-    try{
-
-        const response = await fetch(
-            "/api/request-jackpot",
-            {
-                method:"POST",
-
-                headers:{
-                    "Content-Type":"application/json"
-                },
-
-                body:JSON.stringify({
-
-                    userId:uid,
-
-                    wallet:localStorage.getItem("USER_WALLET") || ""
-
-                })
-
-            }
-        );
-
-        const result = await response.json();
-
-        if(!response.ok){
-
-            throw new Error(
-                result.message ||
-                result.error ||
-                "Ошибка сервера: "+response.status
-            );
-
-        }
-
-        output.textContent =
-        "Ответ сервера: "+JSON.stringify(result);
-
-    }catch(error){
-
-        output.textContent =
-        "Ошибка: "+error.message;
-
-        console.error(error);
-
-    }finally{
-
-        btn.disabled = false;
-
-    }
-
-};
-
-
-// ===========================
 // REFERRAL PARAMETER
 // ===========================
 
@@ -659,6 +591,9 @@ app.get('/api/miner-check', (req, res) => {
 <!-- REFERRAL MODULE -->
 
 <script src="/scripts/referral.js"></script>
+    
+<!-- jackpot -->
+    
 <script>
 document.getElementById("jackpotBtn").onclick = async function() {
 
