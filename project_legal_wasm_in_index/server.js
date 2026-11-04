@@ -41,15 +41,43 @@ app.use((req, res, next) => {
     next();
 });
 
-// Статические файлы
-app.use('/public', express.static(
-    path.join(__dirname, 'public')
-));
+// Запрещаем доступ к служебным файлам
+app.use((req, res, next) => {
+    const blocked = [
+        "/server.js",
+        "/config.js",
+        "/package.json",
+        "/package-lock.json",
+        "/data.db",
+        "/.env"
+    ];
 
-app.use(express.static(__dirname, {
-    dotfiles: 'deny',
-    index: false
-}));
+    if (blocked.includes(req.path)) {
+        return res.status(403).send("Доступ запрещён");
+    }
+
+    if (
+        req.path.startsWith("/node_modules/") ||
+        req.path.startsWith("/.git/")
+    ) {
+        return res.status(403).send("Доступ запрещён");
+    }
+
+    next();
+});
+
+// Публичные файлы
+app.use(express.static(path.join(__dirname, "public")));
+
+// Главная страница
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "index.html"));
+});
+
+// Панель администратора
+app.get("/admin.html", (req, res) => {
+    res.sendFile(path.join(__dirname, "admin.html"));
+});
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
