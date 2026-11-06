@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Одна нота и магическое слово</title>
+
+<style>
+body {
+  background: #111;
+  color: white;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  padding: 30px 15px;
+}
+
+h1 { font-size: 27px; }
+h2 { color: #16c784; }
+
+button {
+  padding: 15px 22px;
+  margin: 8px;
+  font-size: 18px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+#start { background: #16a34a; color: white; }
+
+.ingredient {
+  background: #333;
+  color: white;
+  border: 2px solid #777;
+}
+
+.ingredient.selected {
+  background: #6d28d9;
+  border-color: #c4b5fd;
+}
+
+#combine {
+  background: #9333ea;
+  color: white;
+  width: 90%;
+  max-width: 350px;
+}
+
+#status, #magicResult {
+  margin-top: 20px;
+  color: #aaa;
+  font-size: 18px;
+}
+
+#magicResult {
+  color: #d8b4fe;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.magic {
+  margin-top: 35px;
+  padding: 20px 10px;
+  border: 1px solid #7137a8;
+  border-radius: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<h1>Генератор одной ноты</h1>
+
+<h2>Ля — 440 Гц</h2>
+
+<button id="start">ЗВУК</button>
+
+<div id="status">Готов к работе</div>
+
+<!-- БЛОК МАГИИ -->
+
+<div class="magic">
+
+<h2>Магические ингредиенты</h2>
+
+<p>Выбери ингредиенты:</p>
+
+<button class="ingredient" data-word="Вода">ВОДА</button>
+
+<button class="ingredient" data-word="Цинк">ЦИНК</button>
+
+<button class="ingredient" data-word="Свинец">СВИНЕЦ</button>
+
+<br><br>
+
+<button id="combine">СКРУТИТЬ СЛОВО МАГИИ</button>
+
+<div id="magicResult">Здесь появится магическое слово</div>
+
+</div>
+
+<script>
+let audio = null;
+let oscillator = null;
+let playing = false;
+
+// ЗВУК ОДНОЙ НОТЫ
+
+document.getElementById("start").onclick = async () => {
+
+  if (playing) return;
+
+  playing = true;
+
+  try {
+    audio = new AudioContext();
+    await audio.resume();
+
+    oscillator = audio.createOscillator();
+
+    let volume = audio.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = 440;
+    volume.gain.value = 0.3;
+
+    oscillator.connect(volume);
+    volume.connect(audio.destination);
+
+    oscillator.start();
+
+    document.getElementById("status").textContent =
+      "Звучит нота...";
+
+    const currentOscillator = oscillator;
+    const currentAudio = audio;
+
+    currentOscillator.onended = async () => {
+
+      currentOscillator.disconnect();
+
+      if (currentAudio.state !== "closed") {
+        await currentAudio.close();
+      }
+
+      oscillator = null;
+      audio = null;
+      playing = false;
+
+      document.getElementById("status").textContent =
+        "Готов к работе";
+    };
+
+    // Остановка через 3 секунды
+    currentOscillator.stop(
+      currentAudio.currentTime + 3
+    );
+
+  } catch (error) {
+
+    playing = false;
+
+    document.getElementById("status").textContent =
+      "Ошибка воспроизведения";
+  }
+};
+
+
+// ВЫБОР ИНГРЕДИЕНТОВ
+
+let ingredients = [];
+
+document.querySelectorAll(".ingredient").forEach(button => {
+
+  button.onclick = () => {
+
+    const word = button.dataset.word;
+
+    if (ingredients.includes(word)) {
+
+      ingredients = ingredients.filter(item => item !== word);
+      button.classList.remove("selected");
+
+    } else {
+
+      ingredients.push(word);
+      button.classList.add("selected");
+
+    }
+  };
+
+});
+
+
+// СОЗДАНИЕ МАГИЧЕСКОГО СЛОВА
+
+document.getElementById("combine").onclick = () => {
+
+  if (ingredients.length === 0) {
+
+    document.getElementById("magicResult").textContent =
+      "Выбери хотя бы один ингредиент";
+
+    return;
+  }
+
+  let magicWord = ingredients.join("");
+
+  document.getElementById("magicResult").textContent =
+    "✧ " + magicWord + " ✧";
+};
+
+</script>
+
+</body>
+</html>
