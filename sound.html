@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Генератор звуку сканера</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 440px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.35rem;
+    }
+    p {
+      margin: 0 0 20px;
+      color: #94a3b8;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      color: #e2e8f0;
+      margin-bottom: 6px;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button {
+      padding: 12px 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s ease, opacity 0.2s ease;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    #playBtn {
+      background: #38bdf8;
+      color: #0f172a;
+    }
+    #downloadBtn {
+      background: #334155;
+      color: #f8fafc;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      min-height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Звук сканера</h1>
+    <p>Синтезований звуковий ефект променя/втягування (Web Audio API).</p>
+
+    <div class="controls">
+      <div>
+        <label for="startFreq">
+          <span>Початкова частота</span>
+          <span id="startFreqVal">220 Гц</span>
+        </label>
+        <input id="startFreq" type="range" min="80" max="800" value="220" step="10" />
+      </div>
+
+      <div>
+        <label for="endFreq">
+          <span>Кінцева частота (втягування/підйом)</span>
+          <span id="endFreqVal">1450 Гц</span>
+        </label>
+        <input id="endFreq" type="range" min="400" max="3500" value="1450" step="25" />
+      </div>
+
+      <div>
+        <label for="duration">
+          <span>Тривалість</span>
+          <span id="durationVal">1.4 сек</span>
+        </label>
+        <input id="duration" type="range" min="0.3" max="4.0" value="1.4" step="0.1" />
+      </div>
+    </div>
+
+    <div class="buttons">
+      <button id="playBtn" type="button">Відтворити звук</button>
+      <button id="downloadBtn" type="button">Скачати .WAV</button>
+    </div>
+
+    <div class="status" id="status">Готово до відтворення</div>
+  </div>
+
+  <script>
+    const startFreqInput = document.getElementById("startFreq");
+    const endFreqInput = document.getElementById("endFreq");
+    const durationInput = document.getElementById("duration");
+
+    const startFreqVal = document.getElementById("startFreqVal");
+    const endFreqVal = document.getElementById("endFreqVal");
+    const durationVal = document.getElementById("durationVal");
+    const statusEl = document.getElementById("status");
+
+    function updateLabels() {
+      startFreqVal.textContent = `${startFreqInput.value} Гц`;
+      endFreqVal.textContent = `${endFreqInput.value} Гц`;
+      durationVal.textContent = `${Number(durationInput.value).toFixed(1)} сек`;
+    }
+
+    [startFreqInput, endFreqInput, durationInput].forEach((el) =>
+      el.addEventListener("input", updateLabels)
+    );
+    updateLabels();
+
+    function renderScannerBuffer(sampleRate, duration, startFreq, endFreq) {
+      const length = Math.floor(sampleRate * duration);
+      const buffer = new AudioBuffer({
+        numberOfChannels: 1,
+        length,
+        sampleRate,
+      });
+      const data = buffer.getChannelData(0);
+
+      let phase = 0;
+      let lfoPhase = 0;
+
+      for (let i = 0; i < length; i++) {
+        const t = i / sampleRate;
+        const progress = i / length;
+
+        // Плавне наростання частоти + легка пульсація сканування
+        const lfo = Math.sin(2 * Math.PI * lfoPhase) * 35;
+        const currentFreq =
+          startFreq + (endFreq - startFreq) * Math.pow(progress, 1.35) + lfo;
+
+        const lfoFreq = 14 + progress * 22;
+        lfoPhase += lfoFreq / sampleRate;
+        phase += Math.max(20, currentFreq) / sampleRate;
+
+        // Огинаюча гучності (fade-in та fade-out)
+        const fadeIn = Math.min(1, t / 0.08);
+        const fadeOut = Math.min(1, (duration - t) / 0.15);
+        const envelope = fadeIn * fadeOut * 0.45;
+
+        // Змішуємо пилоподібну та синусоїдальну хвилю для металевого сканерного тембру
+        const saw = 2 * (phase - Math.floor(phase + 0.5));
+        const sine = Math.sin(2 * Math.PI * phase);
+        const sample = (saw * 0.55 + sine * 0.45) * envelope;
+
+        data[i] = Math.max(-1, Math.min(1, sample));
+      }
+
+      return buffer;
+    }
+
+    document.getElementById("playBtn").addEventListener("click", async () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+
+        const startFreq = Number(startFreqInput.value);
+        const endFreq = Number(endFreqInput.value);
+        const duration = Number(durationInput.value);
+
+        const buffer = renderScannerBuffer(ctx.sampleRate, duration, startFreq, endFreq);
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(ctx.destination);
+
+        statusEl.textContent = "Відтворюється звук сканера...";
+        source.start();
+        source.onended = () => {
+          statusEl.textContent = "Відтворення завершено";
+          ctx.close();
+        };
+      } catch (err) {
+        statusEl.textContent = "Помилка запуску аудіо: " + err.message;
+      }
+    });
+
+    function audioBufferToWav(buffer) {
+      const numChannels = buffer.numberOfChannels;
+      const sampleRate = buffer.sampleRate;
+      const format = 1; // PCM
+      const bitDepth = 16;
+      const samples = buffer.getChannelData(0);
+      const dataSize = samples.length * numChannels * (bitDepth / 8);
+      const totalSize = 44 + dataSize;
+      const arrayBuffer = new ArrayBuffer(totalSize);
+      const view = new DataView(arrayBuffer);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, "RIFF");
+      view.setUint32(4, totalSize - 8, true);
+      writeString(8, "WAVE");
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, format, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+      view.setUint16(32, numChannels * (bitDepth / 8), true);
+      view.setUint16(34, bitDepth, true);
+      writeString(36, "data");
+      view.setUint32(40, dataSize, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+        offset += 2;
+      }
+
+      return new Blob([arrayBuffer], { type: "audio/wav" });
+    }
+
+    document.getElementById("downloadBtn").addEventListener("click", () => {
+      const startFreq = Number(startFreqInput.value);
+      const endFreq = Number(endFreqInput.value);
+      const duration = Number(durationInput.value);
+      const buffer = renderScannerBuffer(44100, duration, startFreq, endFreq);
+      const wavBlob = audioBufferToWav(buffer);
+      const url = URL.createObjectURL(wavBlob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "scanner-sound.wav";
+      link.click();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      statusEl.textContent = "Файл scanner-sound.wav згенеровано та завантажено";
+    });
+  </script>
+</body>
+</html>
