@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Сканер — Умру на задании (Генератор звука)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: #0b0e11;
+      color: #d0f0d8;
+      font-family: "Courier New", Courier, monospace;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .panel {
+      background: #13181d;
+      border: 1px solid #2b4434;
+      border-radius: 10px;
+      padding: 24px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 0 25px rgba(0, 255, 102, 0.08);
+    }
+    h1 {
+      font-size: 1.2rem;
+      color: #39ff7a;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 0.85rem;
+      color: #7c9a84;
+      margin-bottom: 20px;
+    }
+    .visualizer {
+      width: 100%;
+      height: 70px;
+      background: #080a0c;
+      border: 1px solid #1f3326;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      display: block;
+    }
+    .control-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+      color: #a8ccb2;
+    }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #39ff7a;
+      cursor: pointer;
+    }
+    .buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .btn-play {
+      background: #239b4d;
+      color: #06140b;
+    }
+    .btn-play:hover {
+      background: #39ff7a;
+    }
+    .btn-voice {
+      background: #1d2b22;
+      color: #39ff7a;
+      border: 1px solid #2e593d;
+    }
+    .btn-voice:hover {
+      background: #263b2d;
+    }
+    .btn-download {
+      background: #222930;
+      color: #d0f0d8;
+      border: 1px solid #3c4854;
+    }
+    .btn-download:hover {
+      background: #303a44;
+    }
+    .status {
+      margin-top: 14px;
+      font-size: 0.8rem;
+      color: #698a73;
+      text-align: center;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="panel">
+    <h1>СКАНЕР // ПОТЕРЯ СИГНАЛА</h1>
+    <div class="subtitle">Синтез радиопомех, импульса сканера и затухания</div>
+
+    <canvas id="scope" class="visualizer"></canvas>
+
+    <div class="control-group">
+      <label>
+        <span>Длительность (сек)</span>
+        <span id="durVal">3.5</span>
+      </label>
+      <input type="range" id="duration" min="1.5" max="6.0" step="0.5" value="3.5" />
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Уровень радиошума</span>
+        <span id="noiseVal">45%</span>
+      </label>
+      <input type="range" id="noiseLevel" min="0" max="100" step="5" value="45" />
+    </div>
+
+    <div class="control-group">
+      <label>
+        <span>Частота импульсов сканера</span>
+        <span id="pulseVal">8 Гц</span>
+      </label>
+      <input type="range" id="pulseRate" min="2" max="16" step="1" value="8" />
+    </div>
+
+    <div class="buttons">
+      <button class="btn-play" id="playBtn">▶ ВОСПРОИЗВЕСТИ ЗВУК СКАНЕРА</button>
+      <button class="btn-voice" id="voiceBtn">🎙 СКАНЕР + ГОЛОС «УМРУ НА ЗАДАНИИ»</button>
+      <button class="btn-download" id="downloadBtn">⬇ СКАЧАТЬ ЗВУК (.WAV)</button>
+    </div>
+
+    <div class="status" id="statusText">Готов к работе</div>
+  </div>
+
+  <script>
+    const durationInput = document.getElementById("duration");
+    const noiseInput = document.getElementById("noiseLevel");
+    const pulseInput = document.getElementById("pulseRate");
+
+    const durVal = document.getElementById("durVal");
+    const noiseVal = document.getElementById("noiseVal");
+    const pulseVal = document.getElementById("pulseVal");
+    const statusText = document.getElementById("statusText");
+
+    const canvas = document.getElementById("scope");
+    const ctxCanvas = canvas.getContext("2d");
+
+    durationInput.oninput = () => durVal.textContent = durationInput.value;
+    noiseInput.oninput = () => noiseVal.textContent = noiseInput.value + "%";
+    pulseInput.oninput = () => pulseVal.textContent = pulseInput.value + " Гц";
+
+    let audioCtx = null;
+    let animId = null;
+
+    // Построение графа звука (подходит и для онлайн-воспроизведения, и для OfflineAudioContext)
+    function buildScannerGraph(context, duration, noiseRatio, pulseFreq, destination) {
+      const now = context.currentTime;
+      const sampleRate = context.sampleRate;
+
+      // 1. Полосовой фильтр (имитация динамика рации/сканера 350 - 2800 Гц)
+      const bandpass = context.createBiquadFilter();
+      bandpass.type = "bandpass";
+      bandpass.frequency.setValueAtTime(1100, now);
+      bandpass.Q.setValueAtTime(1.4, now);
+
+      // Искажение (лёгкий перегруз рации)
+      const shaper = context.createWaveShaper();
+      const curve = new Float32Array(256);
+      for (let i = 0; i < 256; i++) {
+        const x = (i * 2) / 256 - 1;
+        curve[i] = Math.tanh(2.5 * x);
+      }
+      shaper.curve = curve;
+
+      // Общая огибающая громкости (затухание "умру на задании")
+      const masterGain = context.createGain();
+      masterGain.gain.setValueAtTime(0.01, now);
+      masterGain.gain.linearRampToValueAtTime(0.85, now + 0.08);
+      masterGain.gain.setValueAtTime(0.85, now + duration * 0.55);
+      // Резкий провал и угасание сигнала
+      masterGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+      bandpass.connect(shaper);
+      shaper.connect(masterGain);
+      masterGain.connect(destination);
+
+      // 2. Генератор сканирующего сигнала
+      const osc = context.createOscillator();
+      const oscGain = context.createGain();
+      osc.type = "sawtooth";
+
+      // Первая половина — быстрое сканирование частот, вторая — падение тона (обрыв связи)
+      const splitTime = now + duration * 0.55;
+      osc.frequency.setValueAtTime(650, now);
+      osc.frequency.linearRampToValueAtTime(1450, now + duration * 0.25);
+      osc.frequency.linearRampToValueAtTime(920, splitTime);
+      osc.frequency.exponentialRampToValueAtTime(110, now + duration);
+
+      // Пульсация сканера (LFO)
+      const lfo = context.createOscillator();
+      const lfoGain = context.createGain();
+      lfo.type = "square";
+      lfo.frequency.setValueAtTime(pulseFreq, now);
+      // Перед "смертью" импульсы сбиваются и замедляются
+      lfo.frequency.linearRampToValueAtTime(1.5, now + duration);
+
+      lfoGain.gain.setValueAtTime(0.35, now);
+      oscGain.gain.setValueAtTime(0.35, now);
+
+      lfo.connect(lfoGain);
+      lfoGain.connect(oscGain.gain);
+
+      osc.connect(oscGain);
+      oscGain.connect(bandpass);
+
+      // 3. Радиошум и треск эфира
+      const bufferSize = Math.floor(sampleRate * duration);
+      const noiseBuffer = context.createBuffer(1, bufferSize, sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // Периодические щелчки помех
+        const crackle = Math.random() > 0.992 ? (Math.random() * 2 - 1) * 2.5 : 0;
+        output[i] = white * 0.6 + crackle;
+      }
+
+      const noiseSource = context.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+
+      const noiseGain = context.createGain();
+      noiseGain.gain.setValueAtTime(noiseRatio * 0.6, now);
+      // Всплеск помех в момент обрыва связи
+      noiseGain.gain.setValueAtTime(Math.min(1, noiseRatio * 1.1), splitTime);
+      noiseGain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+      noiseSource.connect(noiseGain);
+      noiseGain.connect(bandpass);
+
+      // 4. Короткий финальный "писк" отключения (flatline-импульс)
+      const flatOsc = context.createOscillator();
+      const flatGain = context.createGain();
+      flatOsc.type = "sine";
+      flatOsc.frequency.setValueAtTime(440, splitTime);
+      flatOsc.frequency.exponentialRampToValueAtTime(180, now + duration);
+
+      flatGain.gain.setValueAtTime(0.0001, now);
+      flatGain.gain.setValueAtTime(0.0001, splitTime - 0.05);
+      flatGain.gain.linearRampToValueAtTime(0.3, splitTime + 0.05);
+      flatGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+      flatOsc.connect(flatGain);
+      flatGain.connect(bandpass);
+
+      osc.start(now);
+      lfo.start(now);
+      noiseSource.start(now);
+      flatOsc.start(now);
+
+      osc.stop(now + duration);
+      lfo.stop(now + duration);
+      noiseSource.stop(now + duration);
+      flatOsc.stop(now + duration);
+    }
+
+    // Отрисовка осциллографа
+    function drawVisualizer(analyser) {
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+
+      function render() {
+        animId = requestAnimationFrame(render);
+        analyser.getByteTimeDomainData(dataArray);
+
+        ctxCanvas.fillStyle = "#080a0c";
+        ctxCanvas.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctxCanvas.lineWidth = 2;
+        ctxCanvas.strokeStyle = "#39ff7a";
+        ctxCanvas.beginPath();
+
+        const sliceWidth = canvas.width / bufferLength;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+          const v = dataArray[i] / 128.0;
+          const y = (v * canvas.height) / 2;
+          if (i === 0) ctxCanvas.moveTo(x, y);
+          else ctxCanvas.lineTo(x, y);
+          x += sliceWidth;
+        }
+        ctxCanvas.lineTo(canvas.width, canvas.height / 2);
+        ctxCanvas.stroke();
+      }
+      render();
+    }
+
+    function playScanner() {
+      if (audioCtx) {
+        audioCtx.close();
+      }
+      if (animId) cancelAnimationFrame(animId);
+
+      const duration = parseFloat(durationInput.value);
+      const noiseRatio = parseInt(noiseInput.value, 10) / 100;
+      const pulseFreq = parseInt(pulseInput.value, 10);
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+
+      buildScannerGraph(audioCtx, duration, noiseRatio, pulseFreq, analyser);
+      analyser.connect(audioCtx.destination);
+
+      drawVisualizer(analyser);
+      statusText.textContent = "Сканирование... сигнал теряется...";
+
+      setTimeout(() => {
+        statusText.textContent = "Связь прервана.";
+        if (animId) cancelAnimationFrame(animId);
+      }, duration * 1000);
+    }
+
+    // Воспроизведение звука + встроенный синтез речи браузера
+    function playWithVoice() {
+      playScanner();
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance("Сканер... умру на задании...");
+        utter.lang = "ru-RU";
+        utter.rate = 0.85;
+        utter.pitch = 0.7;
+        window.speechSynthesis.speak(utter);
+      } else {
+        statusText.textContent = "Браузер не поддерживает синтез речи, играет только сканер.";
+      }
+    }
+
+    // Рендеринг и скачивание WAV-файла
+    async function downloadWav() {
+      statusText.textContent = "Генерация WAV-файла...";
+      const duration = parseFloat(durationInput.value);
+      const noiseRatio = parseInt(noiseInput.value, 10) / 100;
+      const pulseFreq = parseInt(pulseInput.value, 10);
+      const sampleRate = 44100;
+
+      const offlineCtx = new OfflineAudioContext(1, sampleRate * duration, sampleRate);
+      buildScannerGraph(offlineCtx, duration, noiseRatio, pulseFreq, offlineCtx.destination);
+
+      const renderedBuffer = await offlineCtx.startRendering();
+      const wavBlob = audioBufferToWav(renderedBuffer);
+      const url = URL.createObjectURL(wavBlob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "scanner_umru_na_zadanii.wav";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      statusText.textContent = "Файл scanner_umru_na_zadanii.wav скачан!";
+    }
+
+    // Конвертация AudioBuffer в 16-битный PCM WAV
+    function audioBufferToWav(buffer) {
+      const numChannels = 1;
+      const sampleRate = buffer.sampleRate;
+      const samples = buffer.getChannelData(0);
+      const dataLength = samples.length * 2;
+      const arrayBuffer = new ArrayBuffer(44 + dataLength);
+      const view = new DataView(arrayBuffer);
+
+      function writeString(offset, str) {
+        for (let i = 0; i < str.length; i++) {
+          view.setUint8(offset + i, str.charCodeAt(i));
+        }
+      }
+
+      writeString(0, "RIFF");
+      view.setUint32(4, 36 + dataLength, true);
+      writeString(8, "WAVE");
+      writeString(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, numChannels, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 2, true);
+      view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true);
+      writeString(36, "data");
+      view.setUint32(40, dataLength, true);
+
+      let offset = 44;
+      for (let i = 0; i < samples.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      }
+
+      return new Blob([view], { type: "audio/wav" });
+    }
+
+    document.getElementById("playBtn").addEventListener("click", playScanner);
+    document.getElementById("voiceBtn").addEventListener("click", playWithVoice);
+    document.getElementById("downloadBtn").addEventListener("click", downloadWav);
+  </script>
+</body>
+</html>
