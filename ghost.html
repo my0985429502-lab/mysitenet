@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EVP Сканер Призраков — Синтезатор Потусторонних Звуков</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: #070b09;
+    color: #39ff88;
+    font-family: 'Courier New', Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+    user-select: none;
+  }
+  .scanner-casing {
+    width: 100%;
+    max-width: 720px;
+    background: linear-gradient(145deg, #111915, #0a0f0c);
+    border: 2px solid #1e3b2b;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 0 35px rgba(57, 255, 136, 0.12), inset 0 0 20px rgba(0,0,0,0.8);
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #1e3b2b;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+  .title { font-size: 1.25rem; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 8px rgba(57, 255, 136, 0.6); }
+  .status-badge {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    background: #1a2e22;
+    border: 1px solid #39ff88;
+  }
+  .status-badge.alert {
+    background: #3d0f14;
+    border-color: #ff3b5c;
+    color: #ff3b5c;
+    animation: pulseAlert 0.6s infinite alternate;
+  }
+  @keyframes pulseAlert { from { opacity: 0.6; } to { opacity: 1; } }
+
+  .screens {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) {
+    .screens { grid-template-columns: 1fr; }
+  }
+  canvas {
+    width: 100%;
+    height: 160px;
+    background: #040806;
+    border: 1px solid #1e3b2b;
+    border-radius: 8px;
+    display: block;
+  }
+
+  .emf-meter {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 18px;
+    background: #040806;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #1e3b2b;
+    align-items: center;
+  }
+  .emf-label { font-size: 0.85rem; margin-right: 8px; color: #88b89c; }
+  .emf-bar {
+    flex: 1;
+    height: 16px;
+    background: #101c15;
+    border-radius: 3px;
+    transition: background 0.1s, box-shadow 0.1s;
+  }
+  .emf-bar.active-green { background: #39ff88; box-shadow: 0 0 10px #39ff88; }
+  .emf-bar.active-yellow { background: #ffd000; box-shadow: 0 0 10px #ffd000; }
+  .emf-bar.active-red { background: #ff3b5c; box-shadow: 0 0 12px #ff3b5c; }
+
+  .main-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: bold;
+    transition: all 0.15s;
+  }
+  .btn-power {
+    flex: 1;
+    min-width: 180px;
+    padding: 14px;
+    font-size: 1rem;
+    background: #0f291b;
+    color: #39ff88;
+    border: 2px solid #39ff88;
+  }
+  .btn-power.on {
+    background: #39ff88;
+    color: #050a07;
+    box-shadow: 0 0 18px rgba(57, 255, 136, 0.5);
+  }
+  .btn-record {
+    padding: 14px 18px;
+    font-size: 0.95rem;
+    background: #241014;
+    color: #ff5c77;
+    border: 2px solid #ff5c77;
+  }
+  .btn-record.recording {
+    background: #ff3b5c;
+    color: #fff;
+    animation: pulseAlert 0.5s infinite alternate;
+  }
+
+  .pads-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .pad-btn {
+    padding: 14px 10px;
+    background: #0d1712;
+    border: 1px solid #264d38;
+    color: #b8f5d0;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  .pad-btn:hover { background: #162920; border-color: #39ff88; }
+  .pad-btn:active { transform: scale(0.97); background: #39ff88; color: #050a07; }
+
+  .sliders {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    background: #09110d;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid #1e3b2b;
+  }
+  @media (max-width: 500px) { .sliders { grid-template-columns: 1fr; } }
+  .slider-group { display: flex; flex-direction: column; gap: 6px; }
+  .slider-group label { font-size: 0.8rem; color: #88b89c; display: flex; justify-content: space-between; }
+  input[type="range"] { accent-color: #39ff88; cursor: pointer; }
+  .footer-note { margin-top: 14px; font-size: 0.78rem; color: #5b826c; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="scanner-casing">
+  <div class="header">
+    <div class="title">EVP GHOST SCANNER // v4.2</div>
+    <div id="statusBadge" class="status-badge">ОЖИДАНИЕ</div>
+  </div>
+
+  <div class="screens">
+    <canvas id="scopeCanvas"></canvas>
+    <canvas id="radarCanvas"></canvas>
+  </div>
+
+  <div class="emf-meter">
+    <span class="emf-label">EMF УРОВЕНЬ:</span>
+    <div class="emf-bar" id="emf1"></div>
+    <div class="emf-bar" id="emf2"></div>
+    <div class="emf-bar" id="emf3"></div>
+    <div class="emf-bar" id="emf4"></div>
+    <div class="emf-bar" id="emf5"></div>
+  </div>
+
+  <div class="main-controls">
+    <button id="powerBtn" class="btn-power">ВКЛЮЧИТЬ СКАНЕР</button>
+    <button id="recordBtn" class="btn-record">ЗАПИСАТЬ WAV</button>
+  </div>
+
+  <div class="pads-grid">
+    <button class="pad-btn" onclick="triggerGhostVoice()">👻 ШЁПОТ ПРИЗРАКА (EVP)</button>
+    <button class="pad-btn" onclick="triggerSpiritBox()">📻 SPIRIT BOX (РАДИО-ШУМ)</button>
+    <button class="pad-btn" onclick="triggerWail()">🌫️ ПОТУСТОРОННИЙ ВОЙ</button>
+    <button class="pad-btn" onclick="triggerAnomaly()">⚡ ЭМП-ВСПЫШКА / ПОМЕХИ</button>
+  </div>
+
+  <div class="sliders">
+    <div class="slider-group">
+      <label><span>ЧАСТОТА СКАНЕРА</span><span id="freqVal">145 Hz</span></label>
+      <input type="range" id="freqSlider" min="50" max="600" value="145">
+    </div>
+    <div class="slider-group">
+      <label><span>РАДИО-СТАТИКА</span><span id="noiseVal">35%</span></label>
+      <input type="range" id="noiseSlider" min="0" max="100" value="35">
+    </div>
+    <div class="slider-group">
+      <label><span>ЖУТКОЕ ЭХО (REVERB)</span><span id="echoVal">60%</span></label>
+      <input type="range" id="echoSlider" min="0" max="95" value="60">
+    </div>
+    <div class="slider-group">
+      <label><span>ОБЩАЯ ГРОМКОСТЬ</span><span id="volVal">75%</span></label>
+      <input type="range" id="volSlider" min="0" max="100" value="75">
+    </div>
+  </div>
+  <div class="footer-note">Нажмите «ВКЛЮЧИТЬ СКАНЕР» для фонового сканирования эфира или используйте кнопки аномалий. Кнопка «ЗАПИСАТЬ WAV» сохраняет звук на устройство.</div>
+</div>
+
+<script>
+let audioCtx = null;
+let isRunning = false;
+let masterGain, analyser, delayNode, feedbackGain, noiseGain, droneOsc, droneGain;
+let radarAngle = 0;
+let ghostBlip = { active: false, angle: 0, dist: 0.5, alpha: 0 };
+let mediaRecorder = null;
+let recordedChunks = [];
+let isRecording = false;
+
+const powerBtn = document.getElementById('powerBtn');
+const recordBtn = document.getElementById('recordBtn');
+const statusBadge = document.getElementById('statusBadge');
+
+const freqSlider = document.getElementById('freqSlider');
+const noiseSlider = document.getElementById('noiseSlider');
+const echoSlider = document.getElementById('echoSlider');
+const volSlider = document.getElementById('volSlider');
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = volSlider.value / 100;
+
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 1024;
+
+  // Эхо-линия для потустороннего объема
+  delayNode = audioCtx.createDelay(2.0);
+  delayNode.delayTime.value = 0.38;
+  feedbackGain = audioCtx.createGain();
+  feedbackGain.gain.value = echoSlider.value / 100;
+
+  delayNode.connect(feedbackGain);
+  feedbackGain.connect(delayNode);
+  delayNode.connect(masterGain);
+
+  masterGain.connect(analyser);
+  analyser.connect(audioCtx.destination);
+
+  // Генератор радио-шума
+  const bufferSize = audioCtx.sampleRate * 2;
+  const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const output = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    output[i] = Math.random() * 2 - 1;
+  }
+
+  const whiteNoise = audioCtx.createBufferSource();
+  whiteNoise.buffer = noiseBuffer;
+  whiteNoise.loop = true;
+
+  const bandpass = audioCtx.createBiquadFilter();
+  bandpass.type = 'bandpass';
+  bandpass.frequency.value = 1100;
+  bandpass.Q.value = 1.4;
+
+  noiseGain = audioCtx.createGain();
+  noiseGain.gain.value = (noiseSlider.value / 100) * 0.18;
+
+  whiteNoise.connect(bandpass);
+  bandpass.connect(noiseGain);
+  noiseGain.connect(masterGain);
+  noiseGain.connect(delayNode);
+  whiteNoise.start();
+
+  // Низкочастотный гул сканера
+  droneOsc = audioCtx.createOscillator();
+  droneOsc.type = 'sawtooth';
+  droneOsc.frequency.value = freqSlider.value;
+
+  const droneFilter = audioCtx.createBiquadFilter();
+  droneFilter.type = 'lowpass';
+  droneFilter.frequency.value = 260;
+
+  droneGain = audioCtx.createGain();
+  droneGain.gain.value = 0.12;
+
+  droneOsc.connect(droneFilter);
+  droneFilter.connect(droneGain);
+  droneGain.connect(masterGain);
+  droneOsc.start();
+
+  // Периодический автоматический импульс радара
+  setInterval(() => {
+    if (!isRunning) return;
+    playRadarPing();
+    if (Math.random() < 0.35) {
+      triggerGhostVoice();
+    }
+  }, 3200);
+}
+
+powerBtn.addEventListener('click', () => {
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  isRunning = !isRunning;
+
+  if (isRunning) {
+    powerBtn.textContent = 'ВЫКЛЮЧИТЬ СКАНЕР';
+    powerBtn.classList.add('on');
+    statusBadge.textContent = 'СКАНИРОВАНИЕ ЭФИРА...';
+    masterGain.gain.setTargetAtTime(volSlider.value / 100, audioCtx.currentTime, 0.05);
+  } else {
+    powerBtn.textContent = 'ВКЛЮЧИТЬ СКАНЕР';
+    powerBtn.classList.remove('on');
+    statusBadge.textContent = 'ОЖИДАНИЕ';
+    statusBadge.classList.remove('alert');
+    masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+  }
+});
+
+// Запись звука в аудиофайл
+recordBtn.addEventListener('click', () => {
+  initAudio();
+  if (!isRecording) {
+    const dest = audioCtx.createMediaStreamDestination();
+    masterGain.connect(dest);
+    mediaRecorder = new MediaRecorder(dest.stream);
+    recordedChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ghost_evp_scan.webm';
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    recordBtn.textContent = '⏹ СТОП И СКАЧАТЬ';
+    recordBtn.classList.add('recording');
+  } else {
+    mediaRecorder.stop();
+    isRecording = false;
+    recordBtn.textContent = 'ЗАПИСАТЬ WAV';
+    recordBtn.classList.remove('recording');
+  }
+});
+
+function ensureActiveForPad() {
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (!isRunning) {
+    masterGain.gain.setValueAtTime(volSlider.value / 100, audioCtx.currentTime);
+  }
+}
+
+function showGhostAlert(text) {
+  statusBadge.textContent = text;
+  statusBadge.classList.add('alert');
+  ghostBlip = {
+    active: true,
+    angle: Math.random() * Math.PI * 2,
+    dist: 0.25 + Math.random() * 0.6,
+    alpha: 1.0
+  };
+  setTimeout(() => {
+    statusBadge.classList.remove('alert');
+    statusBadge.textContent = isRunning ? 'СКАНИРОВАНИЕ ЭФИРА...' : 'ОЖИДАНИЕ';
+  }, 1800);
+}
+
+function playRadarPing() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1320, now);
+  osc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+
+  gain.gain.setValueAtTime(0.08, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(now);
+  osc.stop(now + 0.23);
+}
+
+// 1. Формантный шёпот призрака (имитация голоса из потустороннего мира)
+function triggerGhostVoice() {
+  ensureActiveForPad();
+  showGhostAlert('ОБНАРУЖЕН ГОЛОС (EVP)!');
+  const now = audioCtx.currentTime;
+  const duration = 1.4 + Math.random() * 0.8;
+
+  // Создаём шумовой поток + формантные фильтры гласных звуков
+  const bufferSize = Math.floor(audioCtx.sampleRate * duration);
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+  }
+
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+
+  const f1 = audioCtx.createBiquadFilter();
+  f1.type = 'bandpass';
+  f1.Q.value = 9;
+  f1.frequency.setValueAtTime(320, now);
+  f1.frequency.linearRampToValueAtTime(680, now + duration * 0.5);
+  f1.frequency.linearRampToValueAtTime(280, now + duration);
+
+  const f2 = audioCtx.createBiquadFilter();
+  f2.type = 'bandpass';
+  f2.Q.value = 11;
+  f2.frequency.setValueAtTime(1450, now);
+  f2.frequency.linearRampToValueAtTime(950, now + duration * 0.6);
+  f2.frequency.linearRampToValueAtTime(1800, now + duration);
+
+  // Жужжащий голосовой обертон
+  const vocalOsc = audioCtx.createOscillator();
+  vocalOsc.type = 'sawtooth';
+  vocalOsc.frequency.setValueAtTime(115, now);
+  vocalOsc.frequency.linearRampToValueAtTime(82, now + duration);
+
+  const vocalGain = audioCtx.createGain();
+  vocalGain.gain.setValueAtTime(0.001, now);
+  vocalGain.gain.linearRampToValueAtTime(0.35, now + 0.25);
+  vocalGain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+  src.connect(f1);
+  src.connect(f2);
+  vocalOsc.connect(f1);
+  vocalOsc.connect(f2);
+
+  f1.connect(vocalGain);
+  f2.connect(vocalGain);
+
+  vocalGain.connect(masterGain);
+  vocalGain.connect(delayNode);
+
+  src.start(now);
+  vocalOsc.start(now);
+  vocalOsc.stop(now + duration);
+}
+
+// 2. Быстрое переключение радиоканалов Spirit Box
+function triggerSpiritBox() {
+  ensureActiveForPad();
+  showGhostAlert('СКАНИРОВАНИЕ SPIRIT BOX!');
+  const now = audioCtx.currentTime;
+  const sweeps = 7;
+
+  for (let i = 0; i < sweeps; i++) {
+    const t = now + i * 0.14;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = i % 2 === 0 ? 'square' : 'sawtooth';
+    osc.frequency.setValueAtTime(220 + Math.random() * 1400, t);
+    osc.frequency.exponentialRampToValueAtTime(150 + Math.random() * 900, t + 0.11);
+
+    gain.gain.setValueAtTime(0.14, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+    gain.connect(delayNode);
+    osc.start(t);
+    osc.stop(t + 0.13);
+  }
+}
+
+// 3. Потусторонний протяжный вой
+function triggerWail() {
+  ensureActiveForPad();
+  showGhostAlert('ПОТУСТОРОННИЙ ВОЙ!');
+  const now = audioCtx.currentTime;
+  const duration = 2.4;
+
+  const osc1 = audioCtx.createOscillator();
+  const osc2 = audioCtx.createOscillator();
+  osc1.type = 'sine';
+  osc2.type = 'triangle';
+
+  osc1.frequency.setValueAtTime(420, now);
+  osc1.frequency.exponentialRampToValueAtTime(760, now + 0.9);
+  osc1.frequency.exponentialRampToValueAtTime(290, now + duration);
+
+  osc2.frequency.setValueAtTime(426, now);
+  osc2.frequency.exponentialRampToValueAtTime(752, now + 0.9);
+  osc2.frequency.exponentialRampToValueAtTime(284, now + duration);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.001, now);
+  gain.gain.linearRampToValueAtTime(0.24, now + 0.5);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+  osc1.connect(gain);
+  osc2.connect(gain);
+  gain.connect(masterGain);
+  gain.connect(delayNode);
+
+  osc1.start(now);
+  osc2.start(now);
+  osc1.stop(now + duration);
+  osc2.stop(now + duration);
+}
+
+// 4. ЭМП-вспышка / помехи
+function triggerAnomaly() {
+  ensureActiveForPad();
+  showGhostAlert('КРИТИЧЕСКИЙ ЭМП-СКАЧОК!');
+  const now = audioCtx.currentTime;
+
+  const osc = audioCtx.createOscillator();
+  const lfo = audioCtx.createOscillator();
+  const lfoGain = audioCtx.createGain();
+  const mainGain = audioCtx.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(90, now);
+  osc.frequency.linearRampToValueAtTime(1950, now + 0.45);
+  osc.frequency.linearRampToValueAtTime(60, now + 1.1);
+
+  lfo.frequency.value = 38;
+  lfoGain.gain.value = 320;
+  lfo.connect(lfoGain);
+  lfoGain.connect(osc.frequency);
+
+  mainGain.gain.setValueAtTime(0.28, now);
+  mainGain.gain.exponentialRampToValueAtTime(0.001, now + 1.15);
+
+  osc.connect(mainGain);
+  mainGain.connect(masterGain);
+  mainGain.connect(delayNode);
+
+  osc.start(now);
+  lfo.start(now);
+  osc.stop(now + 1.2);
+  lfo.stop(now + 1.2);
+}
+
+// Слайдеры
+freqSlider.addEventListener('input', (e) => {
+  document.getElementById('freqVal').textContent = e.target.value + ' Hz';
+  if (droneOsc) droneOsc.frequency.setTargetAtTime(e.target.value, audioCtx.currentTime, 0.05);
+});
+noiseSlider.addEventListener('input', (e) => {
+  document.getElementById('noiseVal').textContent = e.target.value + '%';
+  if (noiseGain) noiseGain.gain.setTargetAtTime((e.target.value / 100) * 0.18, audioCtx.currentTime, 0.05);
+});
+echoSlider.addEventListener('input', (e) => {
+  document.getElementById('echoVal').textContent = e.target.value + '%';
+  if (feedbackGain) feedbackGain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.05);
+});
+volSlider.addEventListener('input', (e) => {
+  document.getElementById('volVal').textContent = e.target.value + '%';
+  if (masterGain && isRunning) masterGain.gain.setTargetAtTime(e.target.value / 100, audioCtx.currentTime, 0.05);
+});
+
+// Визуализация осциллографа и радара
+const scopeCanvas = document.getElementById('scopeCanvas');
+const scopeCtx = scopeCanvas.getContext('2d');
+const radarCanvas = document.getElementById('radarCanvas');
+const radarCtx = radarCanvas.getContext('2d');
+
+function drawVisuals() {
+  requestAnimationFrame(drawVisuals);
+
+  scopeCanvas.width = scopeCanvas.clientWidth;
+  scopeCanvas.height = scopeCanvas.clientHeight;
+  radarCanvas.width = radarCanvas.clientWidth;
+  radarCanvas.height = radarCanvas.clientHeight;
+
+  const w = scopeCanvas.width;
+  const h = scopeCanvas.height;
+
+  // Осциллограф
+  scopeCtx.fillStyle = '#040806';
+  scopeCtx.fillRect(0, 0, w, h);
+
+  // Сетка
+  scopeCtx.strokeStyle = '#0f2419';
+  scopeCtx.lineWidth = 1;
+  for (let x = 0; x < w; x += 25) {
+    scopeCtx.beginPath(); scopeCtx.moveTo(x, 0); scopeCtx.lineTo(x, h); scopeCtx.stroke();
+  }
+  for (let y = 0; y < h; y += 25) {
+    scopeCtx.beginPath(); scopeCtx.moveTo(0, y); scopeCtx.lineTo(w, y); scopeCtx.stroke();
+  }
+
+  let rms = 0;
+  if (analyser) {
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    analyser.getByteTimeDomainData(dataArray);
+
+    scopeCtx.lineWidth = 2;
+    scopeCtx.strokeStyle = statusBadge.classList.contains('alert') ? '#ff3b5c' : '#39ff88';
+    scopeCtx.beginPath();
+
+    const sliceWidth = w / bufferLength;
+    let x = 0;
+    for (let i = 0; i < bufferLength; i++) {
+      const v = dataArray[i] / 128.0;
+      const diff = v - 1.0;
+      rms += diff * diff;
+      const y = (v * h) / 2;
+      if (i === 0) scopeCtx.moveTo(x, y);
+      else scopeCtx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    scopeCtx.stroke();
+    rms = Math.sqrt(rms / bufferLength);
+  } else {
+    scopeCtx.strokeStyle = '#1e3b2b';
+    scopeCtx.beginPath();
+    scopeCtx.moveTo(0, h / 2);
+    scopeCtx.lineTo(w, h / 2);
+    scopeCtx.stroke();
+  }
+
+  // Индикатор ЭМП
+  const level = Math.min(5, Math.floor(rms * 28));
+  for (let i = 1; i <= 5; i++) {
+    const bar = document.getElementById('emf' + i);
+    bar.className = 'emf-bar';
+    if (i <= level) {
+      if (i <= 2) bar.classList.add('active-green');
+      else if (i <= 4) bar.classList.add('active-yellow');
+      else bar.classList.add('active-red');
+    }
+  }
+
+  // Радар
+  const rw = radarCanvas.width;
+  const rh = radarCanvas.height;
+  const cx = rw / 2;
+  const cy = rh / 2;
+  const radius = Math.min(cx, cy) - 10;
+
+  radarCtx.fillStyle = '#040806';
+  radarCtx.fillRect(0, 0, rw, rh);
+
+  radarCtx.strokeStyle = '#163826';
+  radarCtx.lineWidth = 1;
+  [0.33, 0.66, 1].forEach(r => {
+    radarCtx.beginPath();
+    radarCtx.arc(cx, cy, radius * r, 0, Math.PI * 2);
+    radarCtx.stroke();
+  });
+
+  if (isRunning) {
+    radarAngle += 0.04;
+    radarCtx.strokeStyle = '#39ff88';
+    radarCtx.lineWidth = 2;
+    radarCtx.beginPath();
+    radarCtx.moveTo(cx, cy);
+    radarCtx.lineTo(cx + Math.cos(radarAngle) * radius, cy + Math.sin(radarAngle) * radius);
+    radarCtx.stroke();
+  }
+
+  if (ghostBlip.active && ghostBlip.alpha > 0) {
+    const bx = cx + Math.cos(ghostBlip.angle) * (radius * ghostBlip.dist);
+    const by = cy + Math.sin(ghostBlip.angle) * (radius * ghostBlip.dist);
+    radarCtx.fillStyle = `rgba(255, 59, 92, ${ghostBlip.alpha})`;
+    radarCtx.beginPath();
+    radarCtx.arc(bx, by, 6, 0, Math.PI * 2);
+    radarCtx.fill();
+    ghostBlip.alpha -= 0.008;
+  }
+}
+
+drawVisuals();
+</script>
+</body>
+</html>
