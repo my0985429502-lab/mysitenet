@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Хот-Хот-Хот-Спот Звуковой Сканер</title>
+  <style>
+    :root {
+      --bg: #0c0f17;
+      --panel: #151b29;
+      --text: #eef2ff;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --hot: #ff3b30;
+      --warm: #ff9f0a;
+      --ok: #30d158;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #172033 0%, var(--bg) 65%);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 14px 40px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 540px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header {
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .hotspot-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 22px 12px;
+      min-height: 240px;
+    }
+
+    .hotspot-ring {
+      position: relative;
+      width: 168px;
+      height: 168px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.16) 0%, rgba(56, 189, 248, 0.02) 70%);
+      border: 2px solid rgba(56, 189, 248, 0.35);
+      transition: transform 0.08s ease-out, border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .hotspot-ring.warm {
+      border-color: var(--warm);
+      background: radial-gradient(circle, rgba(255, 159, 10, 0.25) 0%, rgba(255, 159, 10, 0.04) 72%);
+      box-shadow: 0 0 28px rgba(255, 159, 10, 0.25);
+    }
+
+    .hotspot-ring.hot {
+      border-color: var(--hot);
+      background: radial-gradient(circle, rgba(255, 59, 48, 0.42) 0%, rgba(255, 59, 48, 0.08) 75%);
+      box-shadow: 0 0 46px rgba(255, 59, 48, 0.55);
+    }
+
+    .hotspot-core {
+      pointer-events: none;
+    }
+
+    .hotspot-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .hotspot-db {
+      font-size: 1.85rem;
+      font-weight: 800;
+      margin-top: 2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .hotspot-state {
+      font-size: 0.78rem;
+      margin-top: 4px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .hotspot-ring.warm .hotspot-state { color: var(--warm); }
+    .hotspot-ring.hot .hotspot-state { color: var(--hot); }
+
+    canvas {
+      width: 100%;
+      height: 90px;
+      border-radius: 12px;
+      background: #0d121c;
+      border: 1px solid var(--border);
+      display: block;
+      margin-top: 10px;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      flex: 1;
+      min-width: 130px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      background: #1f293d;
+      cursor: pointer;
+      transition: transform 0.1s ease, background 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover:not(:disabled) {
+      background: #28354f;
+    }
+
+    button:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #06101a;
+      border: none;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: #5bc8fa;
+    }
+
+    button.hot-btn {
+      background: rgba(255, 59, 48, 0.2);
+      border-color: rgba(255, 59, 48, 0.5);
+      color: #ff9d98;
+    }
+
+    button.danger {
+      background: rgba(255, 59, 48, 0.18);
+      border-color: rgba(255, 59, 48, 0.45);
+      color: #ff8a84;
+    }
+
+    button.recording {
+      background: var(--hot);
+      color: #fff;
+      border: none;
+      animation: pulseRec 1.2s infinite;
+    }
+
+    @keyframes pulseRec {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.65; }
+    }
+
+    .slider-group {
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .slider-top span:last-child {
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .toggle-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+
+    .toggle-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .toggle-line label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .recordings-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .rec-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rec-item {
+      background: #0f1522;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .rec-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .rec-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    audio {
+      height: 34px;
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .download-link {
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--accent);
+      padding: 6px 10px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    .empty-msg {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-align: center;
+      padding: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <h1>Хот-Хот-Хот-Спот Звуковой Сканер</h1>
+      <p>Проигрывает «Хот-хот-хот-спот» при срабатывании и пишет звук с микрофона</p>
+    </div>
+
+    <div class="card">
+      <div class="hotspot-stage">
+        <div id="hotspot" class="hotspot-ring" title="Нажмите, чтобы проиграть звук Хот-хот-хот-спот и записать">
+          <div class="hotspot-core">
+            <div class="hotspot-label">ХОТ-ХОТ-ХОТ-СПОТ</div>
+            <div id="levelText" class="hotspot-db">0%</div>
+            <div id="stateText" class="hotspot-state">ОЖИДАНИЕ</div>
+          </div>
+        </div>
+      </div>
+
+      <canvas id="scope" width="500" height="90"></canvas>
+
+      <div class="controls-row">
+        <button id="startBtn" class="primary">Включить сканер</button>
+        <button id="playHotBtn" class="hot-btn">Звук Хот-хот-хот-спот</button>
+        <button id="recBtn" disabled>Записать звук</button>
+        <button id="stopBtn" class="danger" disabled>Стоп</button>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-item">
+          <div class="slider-top">
+            <span>Порог срабатывания Хот-спота</span>
+            <span id="thresholdVal">45%</span>
+          </div>
+          <input id="thresholdRange" type="range" min="10" max="90" value="45" />
+        </div>
+
+        <div class="slider-item">
+          <div class="slider-top">
+            <span>Усиление микрофона</span>
+            <span id="gainVal">1.8x</span>
+          </div>
+          <input id="gainRange" type="range" min="0.5" max="4.0" step="0.1" value="1.8" />
+        </div>
+      </div>
+
+      <div class="toggle-group">
+        <div class="toggle-line">
+          <label>
+            <input id="speakToggle" type="checkbox" checked />
+            Озвучивать «Хот-хот-хот-спот» при срабатывании
+          </label>
+          <span id="micStatus" style="color: var(--muted); font-size: 0.8rem;">Микрофон выкл</span>
+        </div>
+
+        <div class="toggle-line">
+          <label>
+            <input id="autoRecToggle" type="checkbox" checked />
+            Автозапись звука с микрофона при срабатывании
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="recordings-title">
+        <span>Записанные звуки</span>
+        <span id="recCount" style="color: var(--muted); font-size: 0.8rem;">0</span>
+      </div>
+      <div id="recList" class="rec-list">
+        <div class="empty-msg">Записей пока нет. Нажмите «Включить сканер» или «Записать звук».</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const playHotBtn = document.getElementById('playHotBtn');
+    const recBtn = document.getElementById('recBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const hotspot = document.getElementById('hotspot');
+    const levelText = document.getElementById('levelText');
+    const stateText = document.getElementById('stateText');
+    const micStatus = document.getElementById('micStatus');
+    const thresholdRange = document.getElementById('thresholdRange');
+    const thresholdVal = document.getElementById('thresholdVal');
+    const gainRange = document.getElementById('gainRange');
+    const gainVal = document.getElementById('gainVal');
+    const speakToggle = document.getElementById('speakToggle');
+    const autoRecToggle = document.getElementById('autoRecToggle');
+    const canvas = document.getElementById('scope');
+    const ctx = canvas.getContext('2d');
+    const recList = document.getElementById('recList');
+    const recCount = document.getElementById('recCount');
+
+    let audioCtx = null;
+    let analyser = null;
+    let gainNode = null;
+    let micStream = null;
+    let mediaRecorder = null;
+    let chunks = [];
+    let rafId = null;
+    let isScanning = false;
+    let isRecording = false;
+    let autoStopTimer = null;
+    let recordingsTotal = 0;
+    let lastHotSoundTime = 0;
+
+    let threshold = Number(thresholdRange.value);
+    let gainValue = Number(gainRange.value);
+
+    thresholdRange.addEventListener('input', () => {
+      threshold = Number(thresholdRange.value);
+      thresholdVal.textContent = `${threshold}%`;
+    });
+
+    gainRange.addEventListener('input', () => {
+      gainValue = Number(gainRange.value);
+      gainVal.textContent = `${gainValue.toFixed(1)}x`;
+      if (gainNode) gainNode.gain.value = gainValue;
+    });
+
+    function ensureToneContext() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtx) {
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Короткий импульсный сигнал "хот-хот-хот-спот" через Web Audio API
+    function playHotPulseChime() {
+      try {
+        const context = ensureToneContext();
+        const now = context.currentTime;
+        const notes = [520, 580, 640, 880]; // 3 импульса "хот" + акцент "спот"
+
+        notes.forEach((freq, idx) => {
+          const osc = context.createOscillator();
+          const gain = context.createGain();
+          const start = now + idx * 0.13;
+          const dur = idx === 3 ? 0.18 : 0.09;
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, start);
+
+          gain.gain.setValueAtTime(0.001, start);
+          gain.gain.exponentialRampToValueAtTime(0.22, start + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
+
+          osc.connect(gain);
+          gain.connect(context.destination);
+
+          osc.start(start);
+          osc.stop(start + dur + 0.02);
+        });
+      } catch (_) {}
+    }
+
+    // Озвучка фразы "Хот хот хот спот"
+    function playHotHotHotSpotSound(force = false) {
+      if (!force && !speakToggle.checked) return;
+
+      const nowMs = Date.now();
+      // Защита от слишком частого повторения (не чаще раза в 1.6 сек)
+      if (!force && nowMs - lastHotSoundTime < 1600) return;
+      lastHotSoundTime = nowMs;
+
+      playHotPulseChime();
+
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const utter = new SpeechSynthesisUtterance('Хот, хот, хот, спот!');
+          utter.lang = 'ru-RU';
+          utter.rate = 1.15;
+          utter.pitch = 1.15;
+          utter.volume = 1.0;
+          window.speechSynthesis.speak(utter);
+        } catch (_) {}
+      }
+    }
+
+    function getSupportedMimeType() {
+      const types = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4'
+      ];
+      return types.find((t) => MediaRecorder.isTypeSupported(t)) || '';
+    }
+
+    function startRecording(reason = 'Ручная запись') {
+      if (!micStream || isRecording) return;
+
+      const mimeType = getSupportedMimeType();
+      mediaRecorder = mimeType
+        ? new MediaRecorder(micStream, { mimeType })
+        : new MediaRecorder(micStream);
+
+      chunks = [];
+      isRecording = true;
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        addRecordingItem(url, reason, blob.type);
+        isRecording = false;
+        recBtn.classList.remove('recording');
+        recBtn.textContent = 'Записать звук';
+      };
+
+      mediaRecorder.start();
+      recBtn.classList.add('recording');
+      recBtn.textContent = 'Стоп запись';
+
+      clearTimeout(autoStopTimer);
+      autoStopTimer = setTimeout(() => {
+        if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+          mediaRecorder.stop();
+        }
+      }, 4000);
+    }
+
+    function stopRecording() {
+      clearTimeout(autoStopTimer);
+      if (isRecording && mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+      }
+    }
+
+    function addRecordingItem(url, reason, mimeType) {
+      recordingsTotal += 1;
+      recCount.textContent = String(recordingsTotal);
+
+      const emptyMsg = recList.querySelector('.empty-msg');
+      if (emptyMsg) emptyMsg.remove();
+
+      const ext = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'm4a' : 'webm';
+      const now = new Date().toLocaleTimeString('ru-RU');
+
+      const item = document.createElement('div');
+      item.className = 'rec-item';
+      item.innerHTML = `
+        <div class="rec-meta">
+          <span><strong>#${recordingsTotal}</strong> • ${reason}</span>
+          <span>${now}</span>
+        </div>
+        <div class="rec-actions">
+          <audio controls src="${url}"></audio>
+          <a class="download-link" href="${url}" download="hot-spot-${recordingsTotal}.${ext}">Скачать</a>
+        </div>
+      `;
+      recList.prepend(item);
+    }
+
+    function drawScope(dataArray) {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const threshY = h - (threshold / 100) * h;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 59, 48, 0.55)';
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(0, threshY);
+      ctx.lineTo(w, threshY);
+      ctx.stroke();
+      ctx.restore();
+
+      const barCount = 48;
+      const step = Math.floor(dataArray.length / barCount);
+      const barWidth = (w / barCount) - 3;
+
+      for (let i = 0; i < barCount; i++) {
+        const val = dataArray[i * step] / 255;
+        const barH = Math.max(4, val * h);
+        const x = i * (barWidth + 3) + 1.5;
+        const y = h - barH;
+
+        const pct = Math.round(val * 100);
+        if (pct >= threshold) {
+          ctx.fillStyle = '#ff3b30';
+        } else if (pct >= threshold * 0.7) {
+          ctx.fillStyle = '#ff9f0a';
+        } else {
+          ctx.fillStyle = '#38bdf8';
+        }
+
+        ctx.beginPath();
+        ctx.roundRect(x, y, barWidth, barH, 3);
+        ctx.fill();
+      }
+    }
+
+    function scanLoop() {
+      if (!isScanning || !analyser) return;
+
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      analyser.getByteFrequencyData(dataArray);
+
+      let sum = 0;
+      let peak = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i];
+        sum += v;
+        if (v > peak) peak = v;
+      }
+
+      const avgNorm = (sum / bufferLength) / 255;
+      const peakNorm = peak / 255;
+      const levelPct = Math.min(100, Math.round((avgNorm * 0.65 + peakNorm * 0.35) * 145));
+
+      levelText.textContent = `${levelPct}%`;
+      const scale = 1 + (levelPct / 100) * 0.22;
+      hotspot.style.transform = `scale(${scale.toFixed(3)})`;
+
+      hotspot.classList.remove('warm', 'hot');
+      if (levelPct >= threshold) {
+        hotspot.classList.add('hot');
+        stateText.textContent = 'ХОТ-ХОТ-ХОТ-СПОТ!';
+        playHotHotHotSpotSound(false);
+
+        if (autoRecToggle.checked && !isRecording) {
+          startRecording(`Хот-спот (${levelPct}%)`);
+        }
+      } else if (levelPct >= threshold * 0.7) {
+        hotspot.classList.add('warm');
+        stateText.textContent = 'БЛИЗКО К СПОТУ';
+      } else {
+        stateText.textContent = 'СКАНИРУЮ...';
+      }
+
+      drawScope(dataArray);
+      rafId = requestAnimationFrame(scanLoop);
+    }
+
+    async function startScanner() {
+      try {
+        ensureToneContext();
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          video: false
+        });
+
+        const source = audioCtx.createMediaStreamSource(micStream);
+        gainNode = audioCtx.createGain();
+        gainNode.gain.value = gainValue;
+
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.75;
+
+        source.connect(gainNode);
+        gainNode.connect(analyser);
+
+        isScanning = true;
+        startBtn.disabled = true;
+        recBtn.disabled = false;
+        stopBtn.disabled = false;
+        micStatus.textContent = 'Микрофон вкл';
+        micStatus.style.color = 'var(--ok)';
+
+        scanLoop();
+      } catch (_) {
+        micStatus.textContent = 'Нет доступа к микрофону';
+        micStatus.style.color = 'var(--hot)';
+        stateText.textContent = 'ОШИБКА ДОСТУПА';
+      }
+    }
+
+    function stopScanner() {
+      isScanning = false;
+      cancelAnimationFrame(rafId);
+      stopRecording();
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+        micStream = null;
+      }
+
+      startBtn.disabled = false;
+      recBtn.disabled = true;
+      stopBtn.disabled = true;
+      hotspot.style.transform = 'scale(1)';
+      hotspot.classList.remove('warm', 'hot');
+      levelText.textContent = '0%';
+      stateText.textContent = 'ОСТАНОВЛЕНО';
+      micStatus.textContent = 'Микрофон выкл';
+      micStatus.style.color = 'var(--muted)';
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    startBtn.addEventListener('click', startScanner);
+    stopBtn.addEventListener('click', stopScanner);
+
+    playHotBtn.addEventListener('click', () => {
+      playHotHotHotSpotSound(true);
+    });
+
+    recBtn.addEventListener('click', () => {
+      if (!isRecording) {
+        startRecording('Ручная запись');
+      } else {
+        stopRecording();
+      }
+    });
+
+    hotspot.addEventListener('click', () => {
+      playHotHotHotSpotSound(true);
+      if (isScanning && !isRecording) {
+        startRecording('Клик по Хот-споту');
+      }
+    });
+  </script>
+</body>
+</html>
