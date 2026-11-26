@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Звуковой сканер хот-спот — Hot-Hot-Hotspot Sound Scanner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    :root {
+      --heat: 0; /* 0.0 (cold) .. 1.0 (hotspot) */
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #090d16;
+      color: #f8fafc;
+      overflow-x: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Плавная пульсация кольца хот-спота */
+    @keyframes pulseRing {
+      0% {
+        transform: scale(0.92);
+        opacity: 0.75;
+      }
+      70% {
+        transform: scale(1.18);
+        opacity: 0;
+      }
+      100% {
+        transform: scale(1.18);
+        opacity: 0;
+      }
+    }
+
+    .hotspot-ring {
+      animation: pulseRing var(--pulse-duration, 1.4s) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+
+    /* Кастомный ползунок чувствительности / поиска */
+    input[type="range"].scanner-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    input[type="range"].scanner-slider::-webkit-slider-runnable-track {
+      height: 12px;
+      border-radius: 9999px;
+      background: linear-gradient(90deg, #1d4ed8 0%, #06b6d4 35%, #f59e0b 70%, #ef4444 100%);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    input[type="range"].scanner-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      background: #ffffff;
+      border: 4px solid #0f172a;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+      margin-top: -9px;
+      transition: transform 0.12s ease;
+    }
+
+    input[type="range"].scanner-slider::-webkit-slider-thumb:active {
+      transform: scale(1.15);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-rose-500/30 selection:text-rose-200">
+  <!-- Фоновое свечение, меняющееся в зависимости от температуры ("холоднее" -> "горячее") -->
+  <div id="ambientGlow" class="pointer-events-none fixed inset-0 z-0 transition-opacity duration-300 opacity-70"
+       style="background: radial-gradient(circle at 50% 28%, rgba(56, 189, 248, 0.16), transparent 58%);">
+  </div>
+
+  <!-- Основной контейнер -->
+  <div class="relative z-10 w-full max-w-4xl mx-auto px-4 py-5 sm:px-6 sm:py-8 flex-1 flex flex-col gap-5 sm:gap-6">
+    <!-- Шапка приложения -->
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-900/75 backdrop-blur-md border border-slate-800/90 rounded-3xl p-4 sm:p-5 shadow-xl">
+      <div class="flex items-center gap-3.5">
+        <div id="headerBadge" class="w-12 h-12 rounded-2xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300 shrink-0 transition-colors duration-200">
+          <!-- Иконка звуковой волны (inline SVG) -->
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 10v4" />
+            <path d="M6 6v12" />
+            <path d="M10 3v18" />
+            <path d="M14 8v8" />
+            <path d="M18 5v14" />
+            <path d="M22 10v4" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-lg sm:text-2xl font-extrabold tracking-tight text-white">
+              Звуковой сканер хот-спот
+            </h1>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              Только звук • Без камеры
+            </span>
+          </div>
+          <p class="text-xs sm:text-sm text-slate-400 mt-0.5">
+            Анализ акустики и звуковая навигация «горячо / холоднее» в реальном времени
+          </p>
+        </div>
+      </div>
+
+      <!-- Статус сканера -->
+      <div class="flex items-center justify-between sm:justify-end gap-2.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-800">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/90 border border-slate-700/80 text-xs font-medium">
+          <span id="statusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+          <span id="statusText" class="text-slate-300">Ожидание запуска</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Уведомление / баннер ошибок и подсказок (вместо alert()) -->
+    <div id="messageBanner" class="hidden rounded-2xl px-4 py-3 text-sm font-medium border flex items-start justify-between gap-3 transition-all" role="alert">
+      <div id="messageBannerText" class="leading-relaxed"></div>
+      <button id="closeBannerBtn" type="button" class="text-xs opacity-75 hover:opacity-100 px-2 py-1 rounded-lg bg-black/20 shrink-0">
+        Закрыть
+      </button>
+    </div>
+
+    <!-- Переключатель режима работы: Датчик микрофона / Симулятор поиска -->
+    <section aria-label="Выбор режима работы" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <button id="modeMicBtn" type="button"
+              class="mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/90 border-sky-500/60 ring-2 ring-sky-500/25 shadow-lg">
+        <div class="w-11 h-11 rounded-xl bg-sky-500/20 text-sky-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="font-bold text-white text-sm sm:text-base">Режим 1: Датчик микрофона</div>
+          <div class="text-xs text-slate-400 truncate">Ловит громкость, спектр и пики звука</div>
+        </div>
+      </button>
+
+      <button id="modeSimBtn" type="button"
+              class="mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/60 border-slate-800 hover:border-slate-700">
+        <div class="w-11 h-11 rounded-xl bg-amber-500/15 text-amber-300 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="font-bold text-white text-sm sm:text-base">Режим 2: Симулятор поиска</div>
+          <div class="text-xs text-slate-400 truncate">Ведите курсор/палец или ползунок к цели</div>
+        </div>
+      </button>
+    </section>
+
+    <!-- Центральный индикатор «Горячо / Холоднее» + импульсы ХОТ-ХОТ-ХОТ-СПОТ -->
+    <section class="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-2xl">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+        <!-- Левая часть: визуальный термометр / радар близости -->
+        <div class="lg:col-span-5 flex flex-col items-center justify-center">
+          <div class="relative w-44 h-44 sm:w-52 sm:h-52 flex items-center justify-center">
+            <!-- Пульсирующее кольцо -->
+            <div id="pulseRing" class="hotspot-ring absolute inset-2 rounded-full border-2 border-sky-400/50 pointer-events-none"></div>
+
+            <!-- Внешний прогресс-круг -->
+            <svg class="w-full h-full -rotate-90" viewBox="0 0 120 120">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(148, 163, 184, 0.14)" stroke-width="10" />
+              <circle id="heatArc" cx="60" cy="60" r="50" fill="none" stroke="#38bdf8" stroke-width="10"
+                      stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16"
+                      class="transition-[stroke,stroke-dashoffset] duration-100" />
+            </svg>
+
+            <!-- Центральный счетчик и статус -->
+            <div class="absolute inset-5 rounded-full bg-slate-950/90 border border-slate-800/90 flex flex-col items-center justify-center text-center px-3 shadow-inner">
+              <span id="tempLabel" class="text-[11px] font-bold uppercase tracking-widest text-sky-400">
+                ХОЛОДНО
+              </span>
+              <div class="flex items-baseline gap-0.5 mt-0.5">
+                <span id="heatPercent" class="text-3xl sm:text-4xl font-black tabular-nums text-white">0</span>
+                <span class="text-sm font-bold text-slate-400">%</span>
+              </div>
+              <span id="pulseRateText" class="text-[11px] text-slate-400 mt-1 tabular-nums">
+                Импульс: —
+              </span>
+            </div>
+          </div>
+
+          <!-- Всплывающий индикатор ХОТ-ХОТ-ХОТ-СПОТ -->
+          <div id="hotspotCallout" class="mt-4 min-h-[36px] flex items-center justify-center">
+            <span id="hotspotBadge" class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold tracking-wide uppercase bg-slate-800 text-slate-400 border border-slate-700 transition-all duration-150">
+              <span>Сканер готов к работе</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Правая часть: акустические метрики и интерактивное поле симулятора -->
+        <div class="lg:col-span-7 flex flex-col gap-4">
+          <!-- 3 карточки метрик звука -->
+          <div class="grid grid-cols-3 gap-2.5 sm:gap-3">
+            <div class="bg-slate-950/75 border border-slate-800/90 rounded-2xl p-3 sm:p-3.5">
+              <div class="text-[11px] text-slate-400 font-medium">Громкость / Уровень</div>
+              <div id="metricVolume" class="text-lg sm:text-xl font-extrabold text-white mt-1 tabular-nums">0%</div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                <div id="volumeBar" class="h-full bg-sky-400 rounded-full transition-all duration-75" style="width: 0%"></div>
+              </div>
+            </div>
+
+            <div class="bg-slate-950/75 border border-slate-800/90 rounded-2xl p-3 sm:p-3.5">
+              <div class="text-[11px] text-slate-400 font-medium">Домин. частота</div>
+              <div id="metricFreq" class="text-lg sm:text-xl font-extrabold text-white mt-1 tabular-nums">0 Гц</div>
+              <div id="freqBandLabel" class="text-[11px] text-slate-400 mt-1.5 truncate">Низкие / Бас</div>
+            </div>
+
+            <div class="bg-slate-950/75 border border-slate-800/90 rounded-2xl p-3 sm:p-3.5">
+              <div class="text-[11px] text-slate-400 font-medium">Пиковые импульсы</div>
+              <div id="metricPeaks" class="text-lg sm:text-xl font-extrabold text-amber-300 mt-1 tabular-nums">0</div>
+              <div id="peakStateLabel" class="text-[11px] text-slate-400 mt-1.5 truncate">Спокойно</div>
+            </div>
+          </div>
+
+          <!-- Интерактивная зона Симулятора поиска -->
+          <div id="simulatorPanel" class="hidden bg-slate-950/85 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-semibold text-amber-300 flex items-center gap-1.5">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                </svg>
+                Поле поиска хот-спота (мышь, палец или ползунок)
+              </span>
+              <button id="randomizeTargetBtn" type="button"
+                      class="text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border border-amber-500/30 transition">
+                Новая скрытая цель
+              </button>
+            </div>
+
+            <!-- Сенсорное / мышиное поле поиска -->
+            <div id="searchPad"
+                 class="relative w-full h-44 sm:h-48 rounded-2xl bg-slate-900 border border-slate-700/80 overflow-hidden select-none touch-none cursor-crosshair">
+              <!-- Сетка радара -->
+              <div class="pointer-events-none absolute inset-0 opacity-20"
+                   style="background-image: linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px); background-size: 28px 28px;">
+              </div>
+              <!-- Маркер позиции пользователя -->
+              <div id="probeMarker"
+                   class="pointer-events-none absolute w-6 h-6 -ml-3 -mt-3 rounded-full bg-white border-4 border-sky-500 shadow-lg transition-transform duration-75"
+                   style="left: 20%; top: 50%;">
+              </div>
+              <!-- Подсказка при наведении/касании -->
+              <div class="pointer-events-none absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Ведите палец или курсор по полю</span>
+                <span id="simDistanceText" class="font-mono text-slate-300">Дистанция: —</span>
+              </div>
+            </div>
+
+            <!-- Ползунок близости для точной настройки / удобства на любом устройстве -->
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs text-slate-400">
+                <span>Позиция зонда (ползунок)</span>
+                <span id="simSliderVal" class="font-semibold text-slate-200 tabular-nums">20%</span>
+              </div>
+              <input id="simSlider" type="range" min="0" max="100" value="20" class="scanner-slider w-full" />
+            </div>
+          </div>
+
+          <!-- Панель настройки чувствительности и обратной связи -->
+          <div id="micSettingsPanel" class="bg-slate-950/75 border border-slate-800/90 rounded-2xl p-4 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <label for="sensitivitySlider" class="text-xs font-semibold text-slate-200">
+                Порог чувствительности микрофона
+              </label>
+              <span id="sensitivityLabel" class="text-xs font-bold text-sky-300 tabular-nums">Средняя (50%)</span>
+            </div>
+            <input id="sensitivitySlider" type="range" min="10" max="95" value="50" class="scanner-slider w-full" />
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+              <label class="inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+                <input id="audioBeaconToggle" type="checkbox" checked
+                       class="w-4 h-4 rounded accent-rose-500 bg-slate-800 border-slate-600" />
+                <span>Звуковые подсказки «горячо / холоднее» (импульсы)</span>
+              </label>
+              <span class="text-[11px] text-slate-400">Рекомендуются наушники</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Визуальный звуковой индикатор: волна и частотный спектр (Canvas) -->
+    <section class="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl space-y-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-sm sm:text-base font-bold text-white">Звуковой осциллограф и спектр</h2>
+          <p class="text-xs text-slate-400">Форма звуковой волны и частотный отклик в реальном времени</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs text-slate-400">
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> Волна
+          </span>
+          <span class="inline-flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Спектр / Хот-спот
+          </span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div class="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-2.5">
+          <div class="text-[11px] font-medium text-slate-400 px-1.5 pb-1">Осциллограмма (форма сигнала)</div>
+          <canvas id="waveformCanvas" class="h-32 sm:h-36 rounded-xl"></canvas>
+        </div>
+
+        <div class="bg-slate-950/90 border border-slate-800/90 rounded-2xl p-2.5">
+          <div class="text-[11px] font-medium text-slate-400 px-1.5 pb-1">Частотный спектр (Гц)</div>
+          <canvas id="spectrumCanvas" class="h-32 sm:h-36 rounded-xl"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- Крупные удобные кнопки управления -->
+    <section aria-label="Управление сканером" class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 pb-2">
+      <button id="toggleScanBtn" type="button"
+              class="sm:col-span-2 min-h-[56px] px-6 py-4 rounded-2xl font-extrabold text-base sm:text-lg tracking-wide flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.99] text-slate-950 shadow-lg shadow-emerald-950/60 transition-all cursor-pointer">
+        <svg id="playIcon" class="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5.14v14l11-7-11-7z" />
+        </svg>
+        <svg id="stopIcon" class="w-6 h-6 hidden" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2" />
+        </svg>
+        <span id="toggleScanText">Запустить сканирование</span>
+      </button>
+
+      <button id="calibrateBtn" type="button"
+              class="min-h-[56px] px-5 py-4 rounded-2xl font-bold text-sm sm:text-base flex items-center justify-center gap-2.5 bg-slate-800 hover:bg-slate-700 active:scale-[0.99] text-white border border-slate-700 shadow-lg transition-all cursor-pointer">
+        <svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+        </svg>
+        <span>Калибровать фон</span>
+      </button>
+    </section>
+  </div>
+
+  <!-- Нижняя строка -->
+  <footer class="relative z-10 text-center text-xs text-slate-500 py-4 px-4">
+    Звуковой сканер хот-спот • Работает на Web Audio API • Камера и фото не используются
+  </footer>
+
+  <script>
+    /**
+     * Звуковой сканер хот-спот (Hot-Hot-Hotspot Sound Scanner)
+     * Работает исключительно с аудио (Web Audio API).
+     */
+
+    (function () {
+      // --- Элементы интерфейса ---
+      const modeMicBtn = document.getElementById('modeMicBtn');
+      const modeSimBtn = document.getElementById('modeSimBtn');
+      const simulatorPanel = document.getElementById('simulatorPanel');
+      const micSettingsPanel = document.getElementById('micSettingsPanel');
+
+      const toggleScanBtn = document.getElementById('toggleScanBtn');
+      const toggleScanText = document.getElementById('toggleScanText');
+      const playIcon = document.getElementById('playIcon');
+      const stopIcon = document.getElementById('stopIcon');
+      const calibrateBtn = document.getElementById('calibrateBtn');
+
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const ambientGlow = document.getElementById('ambientGlow');
+
+      const messageBanner = document.getElementById('messageBanner');
+      const messageBannerText = document.getElementById('messageBannerText');
+      const closeBannerBtn = document.getElementById('closeBannerBtn');
+
+      const pulseRing = document.getElementById('pulseRing');
+      const heatArc = document.getElementById('heatArc');
+      const tempLabel = document.getElementById('tempLabel');
+      const heatPercentEl = document.getElementById('heatPercent');
+      const pulseRateText = document.getElementById('pulseRateText');
+      const hotspotBadge = document.getElementById('hotspotBadge');
+
+      const metricVolume = document.getElementById('metricVolume');
+      const volumeBar = document.getElementById('volumeBar');
+      const metricFreq = document.getElementById('metricFreq');
+      const freqBandLabel = document.getElementById('freqBandLabel');
+      const metricPeaks = document.getElementById('metricPeaks');
+      const peakStateLabel = document.getElementById('peakStateLabel');
+
+      const sensitivitySlider = document.getElementById('sensitivitySlider');
+      const sensitivityLabel = document.getElementById('sensitivityLabel');
+      const audioBeaconToggle = document.getElementById('audioBeaconToggle');
+
+      // Элементы симулятора
+      const searchPad = document.getElementById('searchPad');
+      const probeMarker = document.getElementById('probeMarker');
+      const simDistanceText = document.getElementById('simDistanceText');
+      const simSlider = document.getElementById('simSlider');
+      const simSliderVal = document.getElementById('simSliderVal');
+      const randomizeTargetBtn = document.getElementById('randomizeTargetBtn');
+
+      // Холсты визуализации
+      const waveCanvas = document.getElementById('waveformCanvas');
+      const specCanvas = document.getElementById('spectrumCanvas');
+      const waveCtx = waveCanvas.getContext('2d');
+      const specCtx = specCanvas.getContext('2d');
+
+      const ARC_CIRCUMFERENCE = 2 * Math.PI * 50;
+
+      // --- Состояние приложения ---
+      const state = {
+        mode: 'mic', // 'mic' | 'sim'
+        isScanning: false,
+        isCalibrating: false,
+        sensitivity: 0.5, // 0.10 .. 0.95
+        noiseFloor: 0.015,
+        heat: 0, // 0.0 .. 1.0
+        volumeNorm: 0, // 0.0 .. 1.0
+        dominantFreq: 0, // Гц
+        peakCount: 0,
+        lastPeakTime: 0,
+        isPeakActive: false,
+        audioBeaconEnabled: true,
+
+        // Параметры симулятора поиска
+        probe: { x: 0.2, y: 0.5 },
+        target: { x: 0.78, y: 0.35 },
+        isDraggingPad: false,
+
+        // Web Audio API
+        audioCtx: null,
+        analyser: null,
+        micStream: null,
+        micSource: null,
+        timeData: null,
+        freqData: null,
+        nextBeepTime: 0,
+        rafId: null
+      };
+
+      // --- Вспомогательные функции UI ---
+      function showBanner(text, type = 'info') {
+        messageBannerText.textContent = text;
+        messageBanner.classList.remove(
+          'hidden',
+          'bg-rose-950/80', 'border-rose-500/40', 'text-rose-200',
+          'bg-amber-950/80', 'border-amber-500/40', 'text-amber-200',
+          'bg-sky-950/80', 'border-sky-500/40', 'text-sky-200'
+        );
+
+        if (type === 'error') {
+          messageBanner.classList.add('bg-rose-950/80', 'border-rose-500/40', 'text-rose-200');
+        } else if (type === 'warn') {
+          messageBanner.classList.add('bg-amber-950/80', 'border-amber-500/40', 'text-amber-200');
+        } else {
+          messageBanner.classList.add('bg-sky-950/80', 'border-sky-500/40', 'text-sky-200');
+        }
+      }
+
+      function hideBanner() {
+        messageBanner.classList.add('hidden');
+      }
+
+      closeBannerBtn.addEventListener('click', hideBanner);
+
+      function resetCalibrateButton() {
+        state.isCalibrating = false;
+        calibrateBtn.disabled = false;
+        calibrateBtn.innerHTML = `
+          <svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+          <span>Калибровать фон</span>
+        `;
+      }
+
+      function updateStatusUI() {
+        if (!state.isScanning) {
+          statusDot.className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+          statusText.textContent = 'Остановлено';
+          toggleScanText.textContent = 'Запустить сканирование';
+          playIcon.classList.remove('hidden');
+          stopIcon.classList.add('hidden');
+          toggleScanBtn.className =
+            'sm:col-span-2 min-h-[56px] px-6 py-4 rounded-2xl font-extrabold text-base sm:text-lg tracking-wide flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-[0.99] text-slate-950 shadow-lg shadow-emerald-950/60 transition-all cursor-pointer';
+        } else {
+          statusDot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping';
+          statusText.textContent = state.mode === 'mic' ? 'Сканирует микрофон' : 'Симулятор активен';
+          toggleScanText.textContent = 'Остановить сканирование';
+          playIcon.classList.add('hidden');
+          stopIcon.classList.remove('hidden');
+          toggleScanBtn.className =
+            'sm:col-span-2 min-h-[56px] px-6 py-4 rounded-2xl font-extrabold text-base sm:text-lg tracking-wide flex items-center justify-center gap-3 bg-gradient-to-r from-rose-500 to-orange-500 hover:from-rose-400 hover:to-orange-400 active:scale-[0.99] text-white shadow-lg shadow-rose-950/60 transition-all cursor-pointer';
+        }
+      }
+
+      // --- Адаптивный размер Canvas ---
+      function resizeCanvases() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        [waveCanvas, specCanvas].forEach((canvas) => {
+          const rect = canvas.getBoundingClientRect();
+          const width = Math.max(120, Math.floor(rect.width));
+          const height = Math.max(80, Math.floor(rect.height));
+
+          if (canvas.width !== Math.floor(width * dpr) || canvas.height !== Math.floor(height * dpr)) {
+            canvas.width = Math.floor(width * dpr);
+            canvas.height = Math.floor(height * dpr);
+          }
+        });
+      }
+
+      window.addEventListener('resize', resizeCanvases);
+
+      // --- Web Audio API ---
+      async function ensureAudioContext() {
+        if (!state.audioCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) {
+            throw new Error('Ваш браузер не поддерживает Web Audio API.');
+          }
+          state.audioCtx = new AudioCtx();
+        }
+        if (state.audioCtx.state === 'suspended') {
+          await state.audioCtx.resume();
+        }
+      }
+
+      async function startMicrophone() {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Доступ к микрофону недоступен в этом браузере или контексте.');
+        }
+
+        await ensureAudioContext();
+        stopMicrophoneStreamOnly();
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          },
+          video: false
+        });
+
+        state.micStream = stream;
+        state.micSource = state.audioCtx.createMediaStreamSource(stream);
+
+        const analyser = state.audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.78;
+
+        state.micSource.connect(analyser);
+        state.analyser = analyser;
+        state.timeData = new Uint8Array(analyser.fftSize);
+        state.freqData = new Uint8Array(analyser.frequencyBinCount);
+      }
+
+      function stopMicrophoneStreamOnly() {
+        if (state.micSource) {
+          try {
+            state.micSource.disconnect();
+          } catch (e) {
+            // Игнорируем ошибку отключения
+          }
+          state.micSource = null;
+        }
+        if (state.micStream) {
+          state.micStream.getTracks().forEach((track) => track.stop());
+          state.micStream = null;
+        }
+        state.analyser = null;
+      }
+
+      function triggerProximityBeep(heat) {
+        if (!state.audioBeaconEnabled || !state.audioCtx || state.audioCtx.state !== 'running') {
+          return;
+        }
+        if (heat < 0.08) return;
+
+        const now = state.audioCtx.currentTime;
+        if (now < state.nextBeepTime) return;
+
+        const interval = Math.max(0.085, 0.75 * Math.pow(1 - heat, 1.45));
+        state.nextBeepTime = now + interval;
+
+        const osc = state.audioCtx.createOscillator();
+        const gain = state.audioCtx.createGain();
+
+        const baseFreq = 340 + heat * 980;
+        const isHotspot = heat >= 0.82;
+
+        osc.type = isHotspot ? 'triangle' : 'sine';
+        osc.frequency.setValueAtTime(baseFreq, now);
+        osc.frequency.exponentialRampToValueAtTime(baseFreq * (isHotspot ? 1.24 : 1.06), now + 0.055);
+
+        const peakGain = Math.min(0.16, 0.025 + heat * 0.13);
+        const duration = isHotspot ? 0.065 : 0.05;
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(peakGain, now + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(state.audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration + 0.01);
+      }
+
+      // --- Калибровка шумового фона ---
+      async function calibrateNoiseFloor() {
+        if (state.isCalibrating) return;
+
+        try {
+          if (state.mode === 'sim') {
+            randomizeTarget();
+            showBanner('Цель в симуляторе обновлена! Двигайте курсор или ползунок для поиска хот-спота.', 'info');
+            return;
+          }
+
+          if (!state.isScanning) {
+            await startScan();
+          }
+
+          if (!state.analyser || !state.timeData) {
+            showBanner('Микрофон еще не готов для калибровки.', 'warn');
+            return;
+          }
+
+          state.isCalibrating = true;
+          calibrateBtn.disabled = true;
+          calibrateBtn.textContent = 'Калибровка (1.2с)...';
+          showBanner('Помолчите 1.2 секунды — измеряем фоновый шум помещения...', 'info');
+
+          const samples = [];
+          const start = performance.now();
+
+          const collect = () => {
+            // Если сканер остановили во время калибровки — корректно восстанавливаем кнопку
+            if (!state.isScanning || !state.analyser || !state.timeData) {
+              resetCalibrateButton();
+              return;
+            }
+
+            state.analyser.getByteTimeDomainData(state.timeData);
+            let sumSq = 0;
+            for (let i = 0; i < state.timeData.length; i++) {
+              const norm = (state.timeData[i] - 128) / 128;
+              sumSq += norm * norm;
+            }
+            samples.push(Math.sqrt(sumSq / state.timeData.length));
+
+            if (performance.now() - start < 1200) {
+              requestAnimationFrame(collect);
+            } else {
+              const avgRms = samples.reduce((a, b) => a + b, 0) / Math.max(1, samples.length);
+              state.noiseFloor = Math.min(0.35, Math.max(0.005, avgRms * 1.45));
+              resetCalibrateButton();
+              showBanner(`Калибровка завершена! Фоновый уровень: ${(avgRms * 100).toFixed(1)}%.`, 'info');
+            }
+          };
+
+          requestAnimationFrame(collect);
+        } catch (err) {
+          resetCalibrateButton();
+          showBanner(err.message || 'Не удалось выполнить калибровку.', 'error');
+        }
+      }
+
+      // --- Анализ звука с микрофона ---
+      function analyzeMicrophoneFrame() {
+        if (!state.analyser || !state.timeData || !state.freqData || !state.audioCtx) return;
+
+        state.analyser.getByteTimeDomainData(state.timeData);
+        state.analyser.getByteFrequencyData(state.freqData);
+
+        let sumSq = 0;
+        for (let i = 0; i < state.timeData.length; i++) {
+          const v = (state.timeData[i] - 128) / 128;
+          sumSq += v * v;
+        }
+        const rms = Math.sqrt(sumSq / state.timeData.length);
+
+        const gainFactor = 1.2 + state.sensitivity * 14.0;
+        const adjusted = Math.max(0, (rms - state.noiseFloor) * gainFactor);
+        const targetVol = Math.min(1, adjusted);
+        state.volumeNorm = state.volumeNorm * 0.72 + targetVol * 0.28;
+
+        let maxBinVal = 0;
+        let maxBinIndex = 0;
+        const nyquist = state.audioCtx.sampleRate / 2;
+        const binCount = state.freqData.length;
+
+        for (let i = 1; i < binCount; i++) {
+          const val = state.freqData[i];
+          if (val > maxBinVal) {
+            maxBinVal = val;
+            maxBinIndex = i;
+          }
+        }
+
+        const rawFreq = maxBinVal > 12 ? (maxBinIndex * nyquist) / binCount : 0;
+        state.dominantFreq = Math.round(state.dominantFreq * 0.75 + rawFreq * 0.25);
+
+        const nowMs = performance.now();
+        const peakThreshold = Math.max(0.22, 0.82 - state.sensitivity * 0.52);
+        if (state.volumeNorm > peakThreshold && !state.isPeakActive && nowMs - state.lastPeakTime > 160) {
+          state.peakCount += 1;
+          state.lastPeakTime = nowMs;
+          state.isPeakActive = true;
+        } else if (state.volumeNorm < peakThreshold * 0.72) {
+          state.isPeakActive = false;
+        }
+
+        const recentPeakBoost = nowMs - state.lastPeakTime < 280 ? 0.18 : 0;
+        const computedHeat = Math.min(1, state.volumeNorm * 0.88 + recentPeakBoost);
+        state.heat = state.heat * 0.76 + computedHeat * 0.24;
+      }
+
+      // --- Расчет дистанции и близости в режиме Симулятора поиска ---
+      function getSimulatorMetrics() {
+        const dx = state.probe.x - state.target.x;
+        const dy = state.probe.y - state.target.y;
+        const dist = Math.hypot(dx, dy);
+        const maxDist = Math.SQRT2;
+        const distPercent = Math.round(Math.min(100, (dist / maxDist) * 100));
+        return { dist, maxDist, distPercent };
+      }
+
+      function updateSimulatorDistanceLabel() {
+        const { distPercent } = getSimulatorMetrics();
+        simDistanceText.textContent = `Дистанция: ${distPercent}%`;
+      }
+
+      function analyzeSimulatorFrame() {
+        const { dist, maxDist, distPercent } = getSimulatorMetrics();
+        const normalizedProximity = Math.max(0, Math.min(1, 1 - dist / (maxDist * 0.72)));
+        const curvedHeat = Math.pow(normalizedProximity, 1.35);
+
+        state.heat = state.heat * 0.78 + curvedHeat * 0.22;
+        state.volumeNorm = state.heat;
+        state.dominantFreq = Math.round(220 + state.heat * 1580);
+        simDistanceText.textContent = `Дистанция: ${distPercent}%`;
+      }
+
+      // --- Отрисовка осциллограммы и спектра на Canvas ---
+      function drawVisualizers() {
+        resizeCanvases();
+
+        const wWidth = waveCanvas.width;
+        const wHeight = waveCanvas.height;
+        waveCtx.clearRect(0, 0, wWidth, wHeight);
+
+        waveCtx.strokeStyle = 'rgba(148, 163, 184, 0.16)';
+        waveCtx.lineWidth = 1;
+        waveCtx.beginPath();
+        waveCtx.moveTo(0, wHeight / 2);
+        waveCtx.lineTo(wWidth, wHeight / 2);
+        waveCtx.stroke();
+
+        waveCtx.lineWidth = Math.max(2, wWidth / 180);
+        waveCtx.strokeStyle = state.heat > 0.72 ? '#fb7185' : '#38bdf8';
+        waveCtx.beginPath();
+
+        if (state.isScanning && state.mode === 'mic' && state.timeData) {
+          const sliceWidth = wWidth / state.timeData.length;
+          let x = 0;
+          for (let i = 0; i < state.timeData.length; i++) {
+            const v = (state.timeData[i] - 128) / 128;
+            const amp = v * (0.4 + state.sensitivity * 0.9);
+            const y = wHeight / 2 + amp * (wHeight * 0.44);
+            if (i === 0) waveCtx.moveTo(x, y);
+            else waveCtx.lineTo(x, y);
+            x += sliceWidth;
+          }
+        } else {
+          const amp = state.isScanning ? (0.06 + state.heat * 0.42) : 0.04;
+          const freq = state.isScanning ? (2 + state.heat * 9) : 2;
+          const phase = performance.now() * 0.006;
+
+          for (let x = 0; x <= wWidth; x += 3) {
+            const normX = x / wWidth;
+            const envelope = Math.sin(normX * Math.PI);
+            const y =
+              wHeight / 2 +
+              Math.sin(normX * Math.PI * 2 * freq + phase) * envelope * amp * wHeight;
+            if (x === 0) waveCtx.moveTo(x, y);
+            else waveCtx.lineTo(x, y);
+          }
+        }
+        waveCtx.stroke();
+
+        const sWidth = specCanvas.width;
+        const sHeight = specCanvas.height;
+        specCtx.clearRect(0, 0, sWidth, sHeight);
+
+        const barCount = 36;
+        const gap = Math.max(2, Math.floor(sWidth / (barCount * 5)));
+        const barWidth = Math.max(3, (sWidth - gap * (barCount + 1)) / barCount);
+
+        for (let i = 0; i < barCount; i++) {
+          let ratio = 0.05;
+          if (state.isScanning && state.mode === 'mic' && state.freqData) {
+            const binIdx = Math.min(
+              state.freqData.length - 1,
+              Math.floor(Math.pow(i / barCount, 1.45) * (state.freqData.length * 0.65))
+            );
+            ratio = Math.min(1, (state.freqData[binIdx] / 255) * (0.65 + state.sensitivity * 0.9));
+          } else if (state.isScanning && state.mode === 'sim') {
+            const centerBin = state.heat * (barCount - 1);
+            const distFromPeak = Math.abs(i - centerBin);
+            ratio = Math.max(0.06, state.heat * Math.exp(-(distFromPeak * distFromPeak) / 18));
+          } else {
+            ratio = 0.05 + 0.04 * Math.abs(Math.sin(i * 0.35 + performance.now() * 0.002));
+          }
+
+          const h = Math.max(4, ratio * (sHeight - 10));
+          const x = gap + i * (barWidth + gap);
+          const y = sHeight - h;
+
+          const grad = specCtx.createLinearGradient(0, y, 0, sHeight);
+          if (ratio > 0.72) {
+            grad.addColorStop(0, '#f43f5e');
+            grad.addColorStop(1, '#f59e0b');
+          } else {
+            grad.addColorStop(0, '#fbbf24');
+            grad.addColorStop(1, '#0284c7');
+          }
+
+          specCtx.fillStyle = grad;
+          specCtx.beginPath();
+          specCtx.roundRect(x, y, barWidth, h, [4, 4, 0, 0]);
+          specCtx.fill();
+        }
+      }
+
+      // --- Обновление индикаторов ---
+      function updateHeatUI() {
+        const pct = Math.round(state.heat * 100);
+        heatPercentEl.textContent = String(pct);
+
+        const offset = ARC_CIRCUMFERENCE * (1 - state.heat);
+        heatArc.style.strokeDashoffset = String(offset);
+
+        let strokeColor = '#38bdf8';
+        let labelText = 'ХОЛОДНО';
+        let labelColor = 'text-sky-400';
+        let glowColor = 'rgba(56, 189, 248, 0.16)';
+
+        if (pct >= 82) {
+          strokeColor = '#f43f5e';
+          labelText = 'ХОТ-СПОТ!';
+          labelColor = 'text-rose-400';
+          glowColor = 'rgba(244, 63, 94, 0.28)';
+        } else if (pct >= 55) {
+          strokeColor = '#f97316';
+          labelText = 'ГОРЯЧО';
+          labelColor = 'text-orange-400';
+          glowColor = 'rgba(249, 115, 22, 0.22)';
+        } else if (pct >= 25) {
+          strokeColor = '#facc15';
+          labelText = 'ТЕПЛЕЕ';
+          labelColor = 'text-amber-300';
+          glowColor = 'rgba(250, 204, 21, 0.18)';
+        }
+
+        heatArc.style.stroke = strokeColor;
+        tempLabel.textContent = labelText;
+        tempLabel.className = `text-[11px] font-bold uppercase tracking-widest ${labelColor}`;
+        ambientGlow.style.background = `radial-gradient(circle at 50% 25%, ${glowColor}, transparent 60%)`;
+
+        const pulseSec = Math.max(0.28, 1.6 - state.heat * 1.3);
+        pulseRing.style.setProperty('--pulse-duration', `${pulseSec.toFixed(2)}s`);
+        pulseRing.style.borderColor = strokeColor;
+
+        if (!state.isScanning) {
+          pulseRateText.textContent = 'Импульс: пауза';
+          hotspotBadge.className =
+            'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold tracking-wide uppercase bg-slate-800 text-slate-400 border border-slate-700 transition-all duration-150';
+          hotspotBadge.innerHTML = '<span>Нажмите «Запустить сканирование»</span>';
+        } else if (pct >= 82) {
+          pulseRateText.textContent = `Импульс: ${(1 / pulseSec).toFixed(1)} Гц (ПИК!)`;
+          hotspotBadge.className =
+            'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-black tracking-wider uppercase bg-gradient-to-r from-rose-600 to-amber-500 text-white border border-rose-300/50 shadow-lg shadow-rose-950/70 scale-105 transition-all duration-150';
+          hotspotBadge.innerHTML = '<span>?? ХОТ-ХОТ-ХОТ-СПОТ! МАКСИМУМ!</span>';
+        } else if (pct >= 55) {
+          pulseRateText.textContent = `Импульс: ${(1 / pulseSec).toFixed(1)} Гц`;
+          hotspotBadge.className =
+            'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-extrabold tracking-wide uppercase bg-orange-500/20 text-orange-200 border border-orange-400/50 transition-all duration-150';
+          hotspotBadge.innerHTML = '<span>🔥 Горячо! Сигнал усиливается</span>';
+        } else if (pct >= 25) {
+          pulseRateText.textContent = `Импульс: ${(1 / pulseSec).toFixed(1)} Гц`;
+          hotspotBadge.className =
+            'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold tracking-wide uppercase bg-amber-500/15 text-amber-200 border border-amber-400/40 transition-all duration-150';
+          hotspotBadge.innerHTML = '<span>🌤 Теплеет — ищем пик</span>';
+        } else {
+          pulseRateText.textContent = `Импульс: ${(1 / pulseSec).toFixed(1)} Гц`;
+          hotspotBadge.className =
+            'inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-bold tracking-wide uppercase bg-sky-500/15 text-sky-200 border border-sky-400/35 transition-all duration-150';
+          hotspotBadge.innerHTML = '<span>❄️ Холодно — слабый сигнал</span>';
+        }
+
+        const volPct = Math.round(state.volumeNorm * 100);
+        metricVolume.textContent = `${volPct}%`;
+        volumeBar.style.width = `${volPct}%`;
+
+        metricFreq.textContent = `${state.dominantFreq} Гц`;
+        if (state.dominantFreq < 250) {
+          freqBandLabel.textContent = 'Низкие / Бас';
+        } else if (state.dominantFreq < 2000) {
+          freqBandLabel.textContent = 'Средние / Речь';
+        } else {
+          freqBandLabel.textContent = 'Высокие / Обертоны';
+        }
+
+        metricPeaks.textContent = String(state.peakCount);
+        const nowMs = performance.now();
+        if (nowMs - state.lastPeakTime < 280) {
+          peakStateLabel.textContent = 'Импульс!';
+          peakStateLabel.className = 'text-[11px] text-rose-400 font-semibold mt-1.5 truncate';
+        } else {
+          peakStateLabel.textContent = state.isScanning ? 'Мониторинг' : 'Ожидание';
+          peakStateLabel.className = 'text-[11px] text-slate-400 mt-1.5 truncate';
+        }
+      }
+
+      // --- Главный цикл анимации ---
+      function loop() {
+        if (state.isScanning) {
+          if (state.mode === 'mic') {
+            analyzeMicrophoneFrame();
+          } else {
+            analyzeSimulatorFrame();
+          }
+          triggerProximityBeep(state.heat);
+        } else {
+          // Плавное затухание показателей при остановке
+          state.heat = state.heat < 0.005 ? 0 : state.heat * 0.9;
+          state.volumeNorm = state.volumeNorm < 0.005 ? 0 : state.volumeNorm * 0.9;
+          state.dominantFreq = state.dominantFreq < 5 ? 0 : Math.round(state.dominantFreq * 0.85);
+        }
+
+        updateHeatUI();
+        drawVisualizers();
+
+        state.rafId = requestAnimationFrame(loop);
+      }
+
+      // --- Запуск / остановка сканирования ---
+      async function startScan() {
+        hideBanner();
+        try {
+          if (state.mode === 'mic') {
+            await startMicrophone();
+            showBanner('Микрофон подключен. Издайте звук, постучите или приблизьтесь к источнику звука.', 'info');
+          } else {
+            await ensureAudioContext();
+            showBanner('Симулятор запущен! Ведите палец/курсор по полю или двигайте ползунок.', 'info');
+          }
+          state.isScanning = true;
+          state.nextBeepTime = state.audioCtx ? state.audioCtx.currentTime : 0;
+          updateStatusUI();
+        } catch (err) {
+          state.isScanning = false;
+          updateStatusUI();
+          showBanner(
+            `Не удалось запустить микрофон (${err.message || 'ошибка доступа'}). Вы можете переключиться в «Симулятор поиска» или проверить разрешения браузера.`,
+            'error'
+          );
+        }
+      }
+
+      function stopScan() {
+        state.isScanning = false;
+        stopMicrophoneStreamOnly();
+        if (state.isCalibrating) {
+          resetCalibrateButton();
+        }
+        updateStatusUI();
+      }
+
+      toggleScanBtn.addEventListener('click', () => {
+        if (state.isScanning) {
+          stopScan();
+        } else {
+          startScan();
+        }
+      });
+
+      calibrateBtn.addEventListener('click', calibrateNoiseFloor);
+
+      // --- Переключение режимов ---
+      function setMode(newMode) {
+        if (state.mode === newMode) return;
+        const wasScanning = state.isScanning;
+        if (wasScanning) {
+          stopScan();
+        }
+        state.mode = newMode;
+        state.heat = 0;
+        state.volumeNorm = 0;
+        state.dominantFreq = 0;
+
+        if (newMode === 'mic') {
+          modeMicBtn.className =
+            'mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/90 border-sky-500/60 ring-2 ring-sky-500/25 shadow-lg';
+          modeSimBtn.className =
+            'mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/60 border-slate-800 hover:border-slate-700';
+          simulatorPanel.classList.add('hidden');
+          micSettingsPanel.classList.remove('hidden');
+        } else {
+          modeSimBtn.className =
+            'mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/90 border-amber-500/60 ring-2 ring-amber-500/25 shadow-lg';
+          modeMicBtn.className =
+            'mode-btn group flex items-center gap-3.5 p-4 rounded-2xl border text-left transition-all duration-150 bg-slate-900/60 border-slate-800 hover:border-slate-700';
+          simulatorPanel.classList.remove('hidden');
+          micSettingsPanel.classList.add('hidden');
+          updateProbeVisual();
+        }
+
+        if (wasScanning) {
+          startScan();
+        }
+      }
+
+      modeMicBtn.addEventListener('click', () => setMode('mic'));
+      modeSimBtn.addEventListener('click', () => setMode('sim'));
+
+      // --- Настройки чувствительности и звукового маяка ---
+      sensitivitySlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        state.sensitivity = val / 100;
+        if (val < 35) {
+          sensitivityLabel.textContent = `Низкая (${val}%)`;
+        } else if (val < 70) {
+          sensitivityLabel.textContent = `Средняя (${val}%)`;
+        } else {
+          sensitivityLabel.textContent = `Высокая (${val}%)`;
+        }
+      });
+
+      audioBeaconToggle.addEventListener('change', (e) => {
+        state.audioBeaconEnabled = Boolean(e.target.checked);
+      });
+
+      // --- Интерактивное управление Симулятором поиска ---
+      function updateProbeVisual() {
+        probeMarker.style.left = `${(state.probe.x * 100).toFixed(1)}%`;
+        probeMarker.style.top = `${(state.probe.y * 100).toFixed(1)}%`;
+        const sliderPct = Math.round(state.probe.x * 100);
+        simSlider.value = String(sliderPct);
+        simSliderVal.textContent = `${sliderPct}%`;
+        updateSimulatorDistanceLabel();
+      }
+
+      function setProbeFromClientCoords(clientX, clientY) {
+        const rect = searchPad.getBoundingClientRect();
+        const x = Math.max(0.03, Math.min(0.97, (clientX - rect.left) / Math.max(1, rect.width)));
+        const y = Math.max(0.06, Math.min(0.94, (clientY - rect.top) / Math.max(1, rect.height)));
+        state.probe.x = x;
+        state.probe.y = y;
+        updateProbeVisual();
+      }
+
+      searchPad.addEventListener('mousedown', (e) => {
+        state.isDraggingPad = true;
+        setProbeFromClientCoords(e.clientX, e.clientY);
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!state.isDraggingPad) return;
+        setProbeFromClientCoords(e.clientX, e.clientY);
+      });
+
+      window.addEventListener('mouseup', () => {
+        state.isDraggingPad = false;
+      });
+
+      searchPad.addEventListener('touchstart', (e) => {
+        if (!e.touches.length) return;
+        state.isDraggingPad = true;
+        setProbeFromClientCoords(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+
+      searchPad.addEventListener('touchmove', (e) => {
+        if (!state.isDraggingPad || !e.touches.length) return;
+        setProbeFromClientCoords(e.touches[0].clientX, e.touches[0].clientY);
+      }, { passive: true });
+
+      searchPad.addEventListener('touchend', () => {
+        state.isDraggingPad = false;
+      });
+
+      simSlider.addEventListener('input', (e) => {
+        const pct = Number(e.target.value);
+        state.probe.x = pct / 100;
+        simSliderVal.textContent = `${pct}%`;
+        probeMarker.style.left = `${pct}%`;
+        updateSimulatorDistanceLabel();
+      });
+
+      function randomizeTarget() {
+        state.target.x = 0.15 + Math.random() * 0.7;
+        state.target.y = 0.18 + Math.random() * 0.64;
+        updateSimulatorDistanceLabel();
+      }
+
+      randomizeTargetBtn.addEventListener('click', () => {
+        randomizeTarget();
+        showBanner('Скрытая горячая точка перемещена в новое место на поле!', 'info');
+      });
+
+      // Инициализация стартового состояния и цикла отрисовки
+      updateStatusUI();
+      updateProbeVisual();
+      resizeCanvases();
+      loop();
+    })();
+  </script>
+</body>
+</html>
